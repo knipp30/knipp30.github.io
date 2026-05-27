@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-HTTP/SNI Applications — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Non-HTTP/SNI Apps</div>
+        <h1>Expose Non-HTTP/SNI Applications</h1>
+        <p>Load balancer services, external application access, TCP/UDP workload routing.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2>
+        <p>OpenShift Routes are optimized for HTTP/HTTPS and SNI-based traffic. For TCP/UDP applications (databases, Redis, game servers, etc.), you need alternative approaches.</p>
+
+        <h2 id="load-balancer">Configuring a Load Balancer Service</h2>
+        <pre><code># Create a LoadBalancer Service
+cat &gt; loadbalancer-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-loadbalancer-svc
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-app
+  ports:
+  - name: tcp
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+EOF
+
+oc apply -f loadbalancer-svc.yaml
+
+# View LoadBalancer service
+oc get svc/my-loadbalancer-svc -o wide
+
+# LoadBalancer external IP (may take time to provision)
+oc get svc/my-loadbalancer-svc
+
+# Create a LoadBalancer with specific ports
+cat &gt; multiport-lb.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: multiport-lb
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-app
+  ports:
+  - name: tcp-primary
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: tcp-secondary
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+  - name: udp-monitoring
+    port: 9090
+    targetPort: 9090
+    protocol: UDP
+EOF
+
+oc apply -f multiport-lb.yaml</code></pre>
+
+        <h2 id="external-access">Configuring External Application Access</h2>
+        <pre><code># Method 1: NodePort Service (access via node IP + port)
+cat &gt; nodeport-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-svc
+spec:
+  type: NodePort
+  selector:
+    app: my-app
+  ports:
+  - name: tcp
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080  # Optional: specify a port in range 30000-32767
+EOF
+
+oc apply -f nodeport-svc.yaml
+
+# Access from outside: http://&lt;node-ip&gt;:30080
+oc get svc/my-nodeport-svc
+oc get endpoints/my-nodeport-svc
+
+# Method 2: Route with TLS passthrough (for TCP/HTTPS)
+cat &gt; route-passthrough.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-tcp-route
+spec:
+  host: my-tcp.example.com
+  to:
+    kind: Service
+    name: my-nodeport-svc
+    weight: 100
+  port:
+    targetPort: 8443
+  tls:
+    termination: passthrough
+EOF
+
+oc apply -f route-passthrough.yaml
+
+# Method 3: HostPort (direct binding to node - use with caution)
+cat &gt; pod-hostport.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  hostNetwork: true
+  containers:
+  - name: my-app
+    image: nginx
+    ports:
+    - containerPort: 8080
+      hostPort: 8080
+EOF
+
+# Method 4: ExternalName service (DNS-based external access)
+cat &gt; externalname-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-external-name-svc
+spec:
+  type: ExternalName
+  externalName: api.external-service.com
+EOF
+
+oc apply -f externalname-svc.yaml</code></pre>
+
+        <h2 id="tcp-services">TCP/UDP Service Configuration</h2>
+        <pre><code># TCP Service
+cat &gt; tcp-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-service
+spec:
+  type: ClusterIP
+  selector:
+    app: my-tcp-app
+  ports:
+  - name: tcp-app
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+EOF
+
+# UDP Service
+cat &gt; udp-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: udp-service
+spec:
+  type: ClusterIP
+  selector:
+    app: my-udp-app
+  ports:
+  - name: udp-app
+    port: 5353
+    targetPort: 5353
+    protocol: UDP
+EOF
+
+# Mixed TCP/UDP Service
+cat &gt; mixed-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixed-service
+spec:
+  type: ClusterIP
+  selector:
+    app: my-app
+  ports:
+  - name: tcp
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: udp
+    port: 8080
+    targetPort: 8080
+    protocol: UDP
+EOF
+
+# Verify services
+oc get svc tcp-service udp-service mixed-service -n my-project
+oc get endpoints tcp-service -n my-project</code></pre>
+
+        <h2 id="streaming">Stream Protocols (STONET, SCTP)</h2>
+        <pre><code># SCTP Service
+cat &gt; sctp-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: sctp-service
+spec:
+  type: ClusterIP
+  selector:
+    app: my-sctp-app
+  ports:
+  - name: sctp
+    port: 9090
+    targetPort: 9090
+    protocol: SCTP
+EOF
+
+oc apply -f sctp-svc.yaml</code></pre>
+
+        <h2 id="non-http-tls">Non-HTTP/SNI with TLS</h2>
+        <pre><code># For TLS-terminated TCP services, use NodePort or LoadBalancer
+# with the application handling TLS termination
+
+# Example: TLS-terminated TCP service
+cat &gt; tls-tcp-svc.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: tls-tcp-svc
+spec:
+  type: NodePort
+  selector:
+    app: tls-tcp-app
+  ports:
+  - name: tls
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+    nodePort: 30443
+EOF
+
+oc apply -f tls-tcp-svc.yaml
+
+# Verify the service and endpoints
+oc get svc tls-tcp-svc
+oc get endpoints tls-tcp-svc
+
+# Test connectivity
+nc -zv &lt;node-ip&gt; 30443</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/networking/routes/securing-routes.html" style="color:var(--accent)">Routes and TLS</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#load-balancer">Load Balancer Service</a></li><li><a href="#external-access">External Access</a></li><li><a href="#tcp-services">TCP/UDP Services</a></li><li><a href="#streaming">Stream Protocols</a></li><li><a href="#non-http-tls">Non-HTTP with TLS</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

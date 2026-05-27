@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Manifests — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Resource Manifests</div>
+        <h1>Work with Resource Manifests</h1>
+        <p>Deploy from YAML, Kustomize, overlays, secrets, and configuration maps.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="yaml-manifests">Deploying from YAML Manifests</h2>
+        <pre><code># Create a basic Deployment manifest
+cat &gt; deployment.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  labels:
+    app: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+EOF
+
+# Create a Service manifest
+cat &gt; service.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+spec:
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+EOF
+
+# Apply manifests
+oc apply -f deployment.yaml
+oc apply -f service.yaml
+oc apply -k .  # Apply directory with Kustomize
+oc apply -f .  # Apply all YAML files in directory
+
+# Apply multiple files
+oc apply -f dir1/ -f dir2/
+
+# Apply from stdin
+echo 'apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace' | oc apply -f -
+
+# Apply from URL
+oc apply -f https://raw.githubusercontent.com/.../manifest.yaml</code></pre>
+
+        <h2 id="update-applications">Updating Application Deployments</h2>
+        <pre><code># Rollout a new image
+oc set image deployment/&lt;deploy-name&gt; &lt;container&gt;=&lt;new-image&gt;
+
+# Update deployment manifest and apply
+oc apply -f deployment.yaml
+
+# Manual edit and apply
+oc edit deployment/&lt;deploy-name&gt;
+
+# Patch with new image
+oc patch deployment/&lt;deploy-name&gt; -p '{"spec":{"template":{"spec":{"containers":[{"name":"my-app","image":"nginx:1.22"}]}}}}'
+
+# View rollout history
+oc rollout history deployment/&lt;deploy-name&gt;
+
+# View rollout history with revision details
+oc rollout history deployment/&lt;deploy-name&gt; --revision=2
+
+# Rollback to previous revision
+oc rollout undo deployment/&lt;deploy-name&gt;
+
+# Rollback to specific revision
+oc rollout undo deployment/&lt;deploy-name&gt; --to-revision=2
+
+# View rollout status
+oc rollout status deployment/&lt;deploy-name&gt;
+
+# Pause a rollout
+oc rollout pause deployment/&lt;deploy-name&gt;
+
+# Resume a paused rollout
+oc rollout resume deployment/&lt;deploy-name&gt;
+
+# Restart a rollout
+oc rollout restart deployment/&lt;deploy-name&gt;</code></pre>
+
+        <h2 id="kustomize">Kustomize</h2>
+        <pre><code># Create a kustomization.yaml
+cat &gt; kustomization.yaml &lt;&lt;'EOF'
+apiVersion: kustomize.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+
+commonAnnotations:
+  notes: "managed by kustomize"
+EOF
+
+# Apply with Kustomize
+oc apply -k .
+
+# Generate Kustomize output without applying
+kustomize build .
+
+# Build and save to file
+kustomize build . &gt; kustomized-output.yaml
+
+# Create overlays directory structure
+mkdir -p base overlays/dev overlays/staging overlays/prod
+
+# Apply a specific overlay
+oc apply -k overlays/dev</code></pre>
+
+        <h2 id="overlays">Kustomize Overlays</h2>
+        <pre><code># Base kustomization.yaml
+cat &gt; base/kustomization.yaml &lt;&lt;'EOF'
+apiVersion: kustomize.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+commonLabels:
+  app: my-app
+EOF
+
+# Base deployment
+cat &gt; base/deployment.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: my-app
+        image: nginx:1.21
+EOF
+
+# Dev overlay
+cat &gt; overlays/dev/kustomization.yaml &lt;&lt;'EOF'
+apiVersion: kustomize.k8s.io/v1beta1
+kind: Kustomization
+bases:
+  - ../../base
+namespace: dev
+commonLabels:
+  env: dev
+patchesStrategicMerge:
+  - patch.yaml
+EOF
+
+cat &gt; overlays/dev/patch.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: my-app
+        image: nginx:1.21
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+EOF
+
+# Staging overlay
+cat &gt; overlays/staging/kustomization.yaml &lt;&lt;'EOF'
+apiVersion: kustomize.k8s.io/v1beta1
+kind: Kustomization
+bases:
+  - ../../base
+namespace: staging
+commonLabels:
+  env: staging
+patchesStrategicMerge:
+  - patch.yaml
+EOF
+
+cat &gt; overlays/staging/patch.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: my-app
+        image: nginx:1.21
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+EOF
+
+# Apply specific overlays
+oc apply -k overlays/dev
+oc apply -k overlays/staging
+oc apply -k overlays/prod</code></pre>
+
+        <h2 id="secrets">Creating and Using Secrets</h2>
+        <pre><code># Create a secret from literal values
+oc create secret generic my-secret --from-literal=username=admin --from-literal=password=secret123
+
+# Create a secret from files
+oc create secret generic tls-secret --from-file=tls.crt --from-file=tls.key
+
+# Create a secret from environment file
+oc create secret generic env-secret --from-file=.env
+
+# Create a secret declaratively (YAML)
+cat &gt; secret.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+type: Opaque
+data:
+  # Values must be base64 encoded
+  username: YWRtaW4=
+  password: c2VjcmV0MTIz
+EOF
+
+oc apply -f secret.yaml
+
+# Create a secret with kubectl create --save-generator
+oc create secret generic db-credentials \
+  --from-literal=username=admin \
+  --from-literal=password=secret123 \
+  --dry-run=client -o yaml &gt; secret.yaml
+
+# Use a secret as environment variables
+oc set env deployment/&lt;deploy-name&gt; --from=secret/my-secret
+
+# Reference a secret in a pod spec
+cat &gt; pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-app
+    image: nginx
+    env:
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: username
+    - name: DB_PASS
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: password
+    # Mount as volumes
+    volumeMounts:
+    - name: tls-cert
+      mountPath: /etc/tls
+      readOnly: true
+  volumes:
+  - name: tls-cert
+    secret:
+      secretName: tls-secret
+EOF
+
+# Create a docker registry secret
+oc create secret generic registry-creds \
+  --from-literal=.dockerconfigjson=~/.docker/config.json \
+  --type=kubernetes.io/dockerconfigjson
+
+# Use image pull secret
+oc secrets link default registry-creds --for=pull
+
+# Create a TLS secret
+oc create secret tls my-tls \
+  --cert=path/to/cert/tls.crt \
+  --key=path/to/cert/tls.key
+
+# View secret
+oc get secret my-secret -o yaml
+oc get secret my-secret -o jsonpath='{.data.username}' | base64 -d</code></pre>
+
+        <h2 id="configmaps">Creating and Using ConfigMaps</h2>
+        <pre><code># Create a configmap from literals
+oc create configmap my-config --from-literal=key1=value1 --from-literal=key2=value2
+
+# Create a configmap from a file
+oc create configmap my-config --from-file=config.properties
+
+# Create a configmap from a directory
+oc create configmap my-config --from-file=./config-dir/
+
+# Create a configmap declaratively
+cat &gt; configmap.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key1: value1
+  key2: value2
+  # Multi-line values using literal style
+  app.properties: |
+    server.port=8080
+    app.name=my-app
+  # Individual files can be key-value pairs
+  special.txt: |
+    This is special content
+    that spans multiple lines
+EOF
+
+oc apply -f configmap.yaml
+
+# Use a ConfigMap as environment variables
+oc set env deployment/&lt;deploy-name&gt; --from=configmap/my-config
+
+# Reference a ConfigMap in a pod spec
+cat &gt; pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-app
+    image: nginx
+    env:
+    - name: APP_ENV
+      valueFrom:
+        configMapKeyRef:
+          name: my-config
+          key: key1
+    # Mount as volume
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/config
+      readOnly: true
+  volumes:
+  - name: config-volume
+    configMap:
+      name: my-config
+EOF
+
+# Update a ConfigMap
+oc edit configmap my-config
+# Add/change entries in the data section
+
+# ConfigMap changes are NOT automatically reflected in running pods
+# To pick up changes, restart pods or use downward API
+oc rollout restart deployment/&lt;deploy-name&gt;
+
+# View a ConfigMap
+oc get configmap my-config -o yaml
+oc get configmap my-config -o jsonpath='{.data}'</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://kubernetes.io/docs/concepts/configuration/configmap/" style="color:var(--accent)">Kubernetes ConfigMaps</a> · <a href="https://kubernetes.io/docs/concepts/configuration/secret/" style="color:var(--accent)">Kubernetes Secrets</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#yaml-manifests">YAML Manifests</a></li><li><a href="#update-applications">Update Applications</a></li><li><a href="#kustomize">Kustomize</a></li><li><a href="#overlays">Overlays</a></li><li><a href="#secrets">Secrets</a></li><li><a href="#configmaps">ConfigMaps</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

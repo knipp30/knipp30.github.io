@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Security — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Application Security</div>
+        <h1>Configure Application Security</h1>
+        <p>Service accounts, privileged apps, SCCs, secrets, Kubernetes API access, jobs, and cron jobs.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2>
+        <p>Application security in OpenShift involves managing identities, permissions, access controls, and workload isolation to ensure secure application deployment.</p>
+
+        <h2 id="service-accounts">Configuring and Managing Service Accounts</h2>
+        <pre><code># View the default service account
+oc describe serviceaccount default -n my-project
+
+# Create a custom service account
+cat &gt; sa.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+  namespace: my-project
+EOF
+
+oc apply -f sa.yaml
+
+# Use a service account in a pod
+cat &gt; pod-sa.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  serviceAccountName: my-app-sa
+  containers:
+  - name: my-app
+    image: nginx
+EOF
+
+oc apply -f pod-sa.yaml
+
+# Create a service account with image pull secrets
+cat &gt; sa-pull-secret.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+  namespace: my-project
+imagePullSecrets:
+- name: registry-creds
+EOF
+
+oc apply -f sa-pull-secret.yaml
+
+# Link a service account to an image pull secret
+oc secrets link my-app-sa registry-creds --for=pull -n my-project
+
+# Automount service account token (security best practice)
+cat &gt; sa-no-automount.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-app-sa
+  namespace: my-project
+automountServiceAccountToken: false
+EOF
+
+oc apply -f sa-no-automount.yaml
+
+# Use a service account with explicit token mount
+cat &gt; pod-token-mount.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  serviceAccountName: my-app-sa
+  automountServiceAccountToken: false
+  containers:
+  - name: my-app
+    image: nginx
+    volumeMounts:
+    - name: token
+      mountPath: /var/run/secrets/tokens
+      readOnly: true
+  volumes:
+  - name: token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          audience: openshift
+          expirationSeconds: 3600
+EOF
+
+oc apply -f pod-token-mount.yaml</code></pre>
+
+        <h2 id="privileged">Running Privileged Applications</h2>
+        <pre><code># Run a privileged container (requires elevated privileges)
+cat &gt; privileged-pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+spec:
+  containers:
+  - name: privileged-container
+    image: nginx
+    securityContext:
+      privileged: true
+      runAsUser: 0
+EOF
+
+# Apply requires SecurityContextConstraints approval
+oc apply -f privileged-pod.yaml
+
+# View SCC requirements
+oc get scc
+
+# Common SCCs:
+#   privileged: Full host access
+#   hostnetwork: Access to host network
+#   hostaccess: Access to host filesystem
+#   restricted: Default - no root, no privileged
+
+# Use a specific SCC (must be in the service account's allowed SCCs)
+cat &gt; scc-pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  securityContext:
+    runAsUser: 0
+    seLinuxOptions:
+      level: s0:c123,c456
+  containers:
+  - name: my-app
+    image: nginx
+    securityContext:
+      privileged: true
+      runAsUser: 0
+EOF
+
+oc apply -f scc-pod.yaml</code></pre>
+
+        <h2 id="scc">Managing Security Context Constraints</h2>
+        <pre><code># View available SCCs
+oc get scc
+oc describe scc restricted
+oc describe scc privileged
+
+# SCC fields:
+#   allowPrivilegedContainer: Allow privileged containers
+#   runAsUser: User ID strategy (MustRunAs, RunAsAny, etc.)
+#   fsGroup: Filesystem group strategy
+#   seLinuxContext: SELinux strategy
+#   supplementalGroups: Supplemental group strategy
+#   volumes: Allowed volume types
+#   allowedCapabilities: Allowed capabilities
+
+# Add a user to the privileged SCC (requires cluster-admin)
+oc adm policy add-scc-to-user privileged -z my-app-sa -n my-project
+oc adm policy add-scc-to-user privileged system:serviceaccount:my-project:my-app-sa
+
+# Add SCC to a group
+oc adm policy add-scc-to-group privileged system:authenticated:oauth
+
+# Remove SCC from a user
+oc adm policy remove-scc-from-user privileged -z my-app-sa -n my-project
+
+# SCC binding
+cat &gt; scc-binding.yaml &lt;&lt;'EOF'
+apiVersion: authorization.openshift.io/v1
+kind: SubjectAccessReview
+metadata:
+  name: scc-binding
+spec:
+  resources:
+  - verbs: ["use"]
+    resource: securitycontextconstraints
+    name: privileged
+  user: system:serviceaccount:my-project:my-app-sa
+EOF</code></pre>
+
+        <h2 id="secrets-advanced">Managing and Applying Secrets</h2>
+        <pre><code># Create a secret
+oc create secret generic db-credentials \
+  --from-literal=username=admin \
+  --from-literal=password=secret123 \
+  -n my-project
+
+# Create a TLS secret
+oc create secret tls my-tls --cert=tls.crt --key=tls.key -n my-project
+
+# Create a dockercfg secret
+oc create secret docker-registry registry-pull-secret \
+  --docker-server=registry.example.com \
+  --docker-username=pulluser \
+  --docker-password=pullpass \
+  --docker-email=admin@example.com \
+  -n my-project
+
+# Use secrets in a pod
+cat &gt; pod-secret.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-app
+    image: nginx
+    env:
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: username
+    - name: DB_PASS
+      valueFrom:
+        secretKeyRef:
+          name: db-credentials
+          key: password
+    volumeMounts:
+    - name: tls-secret
+      mountPath: /etc/tls
+      readOnly: true
+  volumes:
+  - name: tls-secret
+    secret:
+      secretName: my-tls
+EOF
+
+oc apply -f pod-secret.yaml
+
+# Rotate secrets by updating the secret and restarting pods
+oc set env deployment/my-app DB_PASS=newpassword --from=secret/db-credentials
+oc rollout restart deployment/my-app</code></pre>
+
+        <h2 id="k8s-api">Configuring Application Access to Kubernetes APIs</h2>
+        <pre><code># Service accounts get automatic access to kube-apiserver
+# Token is mounted at /var/run/secrets/kubernetes.io/serviceaccount/token
+
+# Use the service account token to access Kubernetes API
+cat &gt; api-access.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-test
+spec:
+  serviceAccountName: my-app-sa
+  containers:
+  - name: api-test
+    image: curlimages/curl
+    command: ['sh', '-c', 'while true; do curl -s -k --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default.svc:443/api/v1/namespaces/my-project/pods; sleep 30; done']
+    volumeMounts:
+    - name: ca-cert
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true
+  volumes:
+  - name: ca-cert
+    projected:
+      sources:
+      - serviceAccountToken:
+          audience: api
+          expirationSeconds: 3600
+          path: token
+      - configMap:
+          name: kube-root-ca.crt
+          items:
+          - key: ca.crt
+            path: ca.crt
+EOF
+
+oc apply -f api-access.yaml
+
+# Use RBAC to grant API access
+cat &gt; api-role.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: my-project
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+EOF
+
+oc apply -f api-role.yaml
+
+cat &gt; api-rolebinding.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-reader-binding
+  namespace: my-project
+subjects:
+- kind: ServiceAccount
+  name: my-app-sa
+  namespace: my-project
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f api-rolebinding.yaml</code></pre>
+
+        <h2 id="jobs">Deploying Jobs for One-Time Tasks</h2>
+        <pre><code># Create a simple Job
+cat &gt; job.yaml &lt;&lt;'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: my-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: my-job-container
+        image: busybox
+        command: ['sh', '-c', 'echo "Running one-time task" && sleep 5']
+      restartPolicy: Never
+  backoffLimit: 4
+EOF
+
+oc apply -f job.yaml
+
+# Create a Job with retries and parallelism
+cat &gt; job-parallel.yaml &lt;&lt;'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: parallel-job
+spec:
+  parallelism: 3
+  completions: 6
+  template:
+    spec:
+      containers:
+      - name: parallel-task
+        image: busybox
+        command: ['sh', '-c', 'echo "Processing task $JOB_COMPLETION_INDEX" && sleep 10']
+      restartPolicy: Never
+  backoffLimit: 2
+  completionMode: Indexed
+EOF
+
+oc apply -f job-parallel.yaml
+
+# View job status
+oc get jobs -n my-project
+oc get jobs -n my-project -o wide
+oc describe job/my-job -n my-project
+
+# View job logs
+oc logs job/my-job
+oc logs job/my-job -f
+
+# View pod logs for a specific job
+oc get pods -l job-name=my-job -n my-project
+oc logs &lt;pod-name-from-job&gt; -n my-project
+
+# Delete a job
+oc delete job/my-job -n my-project
+
+# Create a job from imperative commands
+oc run my-job --image=busybox --restart=Never --command -- echo "Hello from job"
+
+oc create job my-job --from=cronjob/my-cronjob</code></pre>
+
+        <h2 id="cron-jobs">Configuring Kubernetes Cron Jobs</h2>
+        <pre><code># Create a CronJob
+cat &gt; cronjob.yaml &lt;&lt;'EOF'
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: my-cronjob
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  # Cron schedule format: minute hour day-of-month month day-of-week
+  # Examples:
+  #   "0 * * * *"       - Every hour
+  #   "0 0 * * *"       - Daily at midnight
+  #   "0 0 * * 0"       - Weekly on Sunday at midnight
+  #   "0 */2 * * *"     - Every 2 hours
+  #   "30 2 * * 1"      - Monday at 2:30 AM
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid  # or "Allow" or "Replace"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cron-container
+            image: busybox
+            command: ['sh', '-c', 'echo "Running scheduled task" && date']
+          restartPolicy: OnFailure
+          backoffLimit: 2
+EOF
+
+oc apply -f cronjob.yaml
+
+# View CronJob status
+oc get cronjob -n my-project
+oc describe cronjob/my-cronjob -n my-project
+
+# View associated jobs
+oc get jobs -n my-project -l cronjob=my-cronjob
+
+# View job execution history
+oc get jobs -n my-project --sort-by='.metadata.creationTimestamp'
+
+# Manually create a Job from a CronJob
+oc create job manual-job --from=cronjob/my-cronjob
+
+# Pause and resume a CronJob
+oc patch cronjob/my-cronjob -p '{"spec":{"suspend":true}}' -n my-project
+oc patch cronjob/my-cronjob -p '{"spec":{"suspend":false}}' -n my-project
+
+# Delete a CronJob
+oc delete cronjob/my-cronjob -n my-project</code></pre>
+
+        <h2 id="security-summary">Security Best Practices</h2>
+        <pre><code># Always use non-root users in containers
+# Set security context at pod or container level
+cat &gt; secure-pod.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secure-pod
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: cache
+      mountPath: /var/cache/nginx
+      - name: run
+        mountPath: /var/run/nginx
+  volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: cache
+    emptyDir: {}
+  - name: run
+    emptyDir: {}
+EOF
+
+oc apply -f secure-pod.yaml
+
+# Check what SCC a service account can use
+oc who-can use scc privileged -n my-project</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/authentication/using-rbac.html" style="color:var(--accent)">RBAC</a> · <a href="https://docs.openshift.com/container-platform/4.18/security/pod-security.html" style="color:var(--accent)">Pod Security</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#service-accounts">Service Accounts</a></li><li><a href="#privileged">Privileged Apps</a></li><li><a href="#scc">Security Context Constraints</a></li><li><a href="#secrets-advanced">Secrets</a></li><li><a href="#k8s-api">Kubernetes API Access</a></li><li><a href="#jobs">Jobs</a></li><li><a href="#cron-jobs">Cron Jobs</a></li><li><a href="#security-summary">Best Practices</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

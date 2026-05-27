@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploy Applications — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Deploy Applications</div>
+        <h1>Deploy Applications</h1>
+        <p>Templates, Helm charts, deployments, replica sets, labels, selectors, services, and external access.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="templates">Deploying from Templates</h2>
+        <pre><code># List available template libraries
+oc template --library
+
+# Import a template from a file
+oc process -f template.yaml -o yaml
+
+# Process a template with parameters
+oc process -f template.yaml -p APP_NAME=myapp -p REPLICAS=3 -o yaml | oc apply -f -
+
+# Process template with parameter file
+oc process -f template.yaml -p params.env -o yaml | oc apply -f -
+
+# Process template with environment variables
+oc process -f template.yaml -p APP_NAME=myapp -n &lt;project&gt; -o yaml | oc apply -f -
+
+# View template without processing
+oc process -f template.yaml --dry-run -o yaml
+
+# Template example
+cat &gt; template.yaml &lt;&lt;'EOF'
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: my-app-template
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${APP_NAME}
+  spec:
+    replicas: ${REPLICAS:-1}
+    selector:
+      matchLabels:
+        app: ${APP_NAME}
+    template:
+      metadata:
+        labels:
+          app: ${APP_NAME}
+      spec:
+        containers:
+        - name: ${APP_NAME}
+          image: ${IMAGE:-nginx:latest}
+          ports:
+          - containerPort: ${PORT:-80}
+parameters:
+- name: APP_NAME
+  value: my-app
+  required: true
+- name: REPLICAS
+  value: "1"
+  required: false
+- name: IMAGE
+  value: nginx:latest
+  required: false
+- name: PORT
+  value: "80"
+  required: false
+EOF</code></pre>
+
+        <h2 id="helm-charts">Deploying from Helm Charts</h2>
+        <pre><code># Install Helm (if not available)
+sudo dnf install -y helm
+
+# Add a Helm repository
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+# Search for charts
+helm search repo nginx
+
+# Install a Helm chart
+helm install my-app bitnami/nginx --namespace my-namespace --create-namespace
+
+# Install with custom values
+helm install my-app bitnami/nginx -f values.yaml --namespace my-namespace
+
+# Install from a local chart
+helm install my-app ./my-chart --namespace my-namespace
+
+# List Helm releases
+helm list -n my-namespace
+helm list --all-namespaces
+
+# View Helm release status
+helm status my-app -n my-namespace
+
+# View Helm release history
+helm history my-app -n my-namespace
+
+# Upgrade a Helm release
+helm upgrade my-app bitnami/nginx -f values.yaml
+
+# Rollback a Helm release
+helm rollback my-app 1 -n my-namespace
+
+# Uninstall a Helm release
+helm uninstall my-app -n my-namespace
+
+# Generate Kubernetes manifests from Helm (without installing)
+helm template my-app bitnami/nginx -f values.yaml &gt; manifests.yaml
+
+# Lint a Helm chart
+helm lint ./my-chart
+
+# Package a Helm chart
+helm package ./my-chart
+
+# Create Chart.yaml
+cat &gt; Chart.yaml &lt;&lt;'EOF'
+apiVersion: v2
+name: my-chart
+description: A custom Helm chart
+version: 1.0.0
+appVersion: "1.0"
+EOF
+
+# Create values.yaml
+cat &gt; values.yaml &lt;&lt;'EOF'
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.21"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+EOF</code></pre>
+
+        <h2 id="manage-deployments">Managing Application Deployments</h2>
+        <pre><code># Scale a deployment
+oc scale deployment/&lt;deploy-name&gt; --replicas=5
+oc scale deployment/&lt;deploy-name&gt; --replicas=0  # Scale down
+
+# Scale using resources.yaml
+oc apply -f deployment.yaml
+
+# Rollout status
+oc rollout status deployment/&lt;deploy-name&gt;
+
+# Rollback
+oc rollout undo deployment/&lt;deploy-name&gt;
+oc rollout undo deployment/&lt;deploy-name&gt; --to-revision=2
+
+# History
+oc rollout history deployment/&lt;deploy-name&gt;
+
+# Restart
+oc rollout restart deployment/&lt;deploy-name&gt;
+
+# Pause/Resume rollout
+oc rollout pause deployment/&lt;deploy-name&gt;
+oc rollout resume deployment/&lt;deploy-name&gt;</code></pre>
+
+        <h2 id="replica-sets">Working with Replica Sets</h2>
+        <pre><code># ReplicaSets are managed by Deployments - avoid managing directly
+oc get replicasets -n &lt;project&gt;
+
+# View replica set details
+oc describe rs &lt;rs-name&gt; -n &lt;project&gt;
+
+# Create a ReplicaSet (not recommended for normal use)
+cat &gt; replicaset.yaml &lt;&lt;'EOF'
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: my-app-rs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: nginx:1.21
+EOF
+
+oc apply -f replicaset.yaml
+
+# Scale a replica set
+oc scale rs/&lt;rs-name&gt; --replicas=5
+
+# Note: Directly managing ReplicaSets bypasses Deployment strategy
+# Use Deployments for controlled scaling and rollouts</code></pre>
+
+        <h2 id="labels">Working with Labels and Selectors</h2>
+        <pre><code># Label a resource
+oc label deployment/&lt;deploy-name&gt; env=prod
+oc label deployment/&lt;deploy-name&gt; tier=frontend
+
+# Update an existing label
+oc label deployment/&lt;deploy-name&gt; env=staging --overwrite
+
+# Remove a label
+oc label deployment/&lt;deploy-name&gt; env-
+
+# Apply labels to multiple resources
+oc label deployment -l app=myapp env=prod --overwrite
+
+# Label based on a file
+oc label -f resources.yaml env=prod --overwrite
+
+# Select by label
+oc get pods -l app=myapp
+oc get pods -l 'app in (web, api)'
+oc get pods -l 'app notin (test)'
+
+# Field selectors
+oc get pods --field-selector=status.phase=Running
+oc get pods --field-selector=status.phase=Failed
+
+# Common label conventions
+#   app.kubernetes.io/name
+#   app.kubernetes.io/instance
+#   app.kubernetes.io/version
+#   app.kubernetes.io/component
+#   app.kubernetes.io/part-of
+#   app.kubernetes.io/managed-by
+#   app.kubernetes.io/environment
+
+oc get pods -l 'app.kubernetes.io/environment=production'</code></pre>
+
+        <h2 id="services">Configuring Services</h2>
+        <pre><code># ClusterIP (default - internal only)
+cat &gt; svc-clusterip.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-clusterip-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+EOF
+
+# NodePort (exposes on each node IP)
+cat &gt; svc-nodeport.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-svc
+spec:
+  type: NodePort
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30080
+EOF
+
+# LoadBalancer (cloud provider)
+cat &gt; svc-lb.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-lb-svc
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 8080
+EOF
+
+# Headless service (no load balancing)
+cat &gt; svc-headless.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-headless-svc
+spec:
+  clusterIP: None
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+    targetPort: 8080
+EOF
+
+# Apply services
+oc apply -f svc-clusterip.yaml
+
+# Port configuration options
+cat &gt; svc-ports.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-multiport-svc
+spec:
+  selector:
+    app: my-app
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    nodePort: 30080
+  - name: https
+    port: 443
+    targetPort: 8443
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+EOF
+
+# View service endpoints
+oc get endpoints &lt;svc-name&gt; -n &lt;project&gt;
+
+# Port naming convention: [protocol:]name[-port]
+#   TCP/UDP is default, must specify HTTP/HTTPS explicitly
+oc get svc --all-namespaces</code></pre>
+
+        <h2 id="external-access">Exposing Applications to External Access</h2>
+        <pre><code># Expose a deployment as a Route (OpenShift)
+oc expose deployment/&lt;deploy-name&gt; --port=80 --name=my-route
+
+# Create a Route manually
+cat &gt; route.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-app-route
+spec:
+  to:
+    kind: Service
+    name: my-app-service
+    weight: 100
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+EOF
+
+oc apply -f route.yaml
+
+# Route types
+#   edge: TLS terminates at router (default)
+#   reencrypt: Router decrypts and re-encrypts to backend
+#   passthrough: Router passes traffic through (backend handles TLS)
+
+# Create a route with TLS
+cat &gt; route-tls.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-tls-route
+spec:
+  host: myapp.example.com
+  to:
+    kind: Service
+    name: my-app-service
+    weight: 100
+  port:
+    targetPort: 8443
+  tls:
+    termination: reencrypt
+    key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      ...
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+    caCertificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+    destinationCACertificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+EOF
+
+# Create a route with passthrough
+cat &gt; route-passthrough.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-passthrough-route
+spec:
+  host: myapp.example.com
+  to:
+    kind: Service
+    name: my-app-service
+    weight: 100
+  tls:
+    termination: passthrough
+EOF
+
+# View routes
+oc get routes -n &lt;project&gt;
+oc get routes -o wide
+
+# Expose a service as a Route
+oc create route edge --service=my-app-svc --hostname=myapp.example.com</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://kubernetes.io/docs/concepts/services-networking/service/" style="color:var(--accent)">Kubernetes Services</a> · <a href="https://docs.openshift.com/container-platform/4.18/networking/routes/route-configuration.html" style="color:var(--accent)">OpenShift Routes</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#templates">Templates</a></li><li><a href="#helm-charts">Helm Charts</a></li><li><a href="#manage-deployments">Deployments</a></li><li><a href="#replica-sets">Replica Sets</a></li><li><a href="#labels">Labels and Selectors</a></li><li><a href="#services">Services</a></li><li><a href="#external-access">External Access</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

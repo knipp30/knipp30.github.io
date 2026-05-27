@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Operators — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Manage Operators</div>
+        <h1>Manage OpenShift Operators</h1>
+        <p>Install, uninstall, and delete OpenShift operators.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2>
+        <p>Operators extend Kubernetes with automated management capabilities. OpenShift Operators are packaged using the Operator Lifecycle Manager (OLM).</p>
+
+        <h2 id="install">Installing an Operator</h2>
+        <pre><code># Method 1: Using the web console
+# 1. Navigate to Operators → OperatorHub
+# 2. Browse or search for an operator
+# 3. Click to install
+# 4. Choose install namespace and approval strategy
+# 5. Click Install
+
+# Method 2: Using CLI
+# 1. Create a Namespace for the operator
+oc create namespace my-operator-ns
+
+# 2. Create a CatalogSource (if not using default catalog)
+cat &gt; catalogsource.yaml &lt;&lt;'EOF'
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: my-catalog
+  namespace: openshift-marketplace
+spec:
+  displayName: My Operator Catalog
+  image: registry.redhat.io/redhat/redhat-operator-index:v4.18
+  sourceType: grpc
+EOF
+
+oc apply -f catalogsource.yaml
+
+# 3. Create a Subscription
+cat &gt; subscription.yaml &lt;&lt;'EOF'
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: my-operator
+  namespace: my-operator-ns
+spec:
+  channel: stable
+  name: my-operator
+  source: my-catalog
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+EOF
+
+oc apply -f subscription.yaml
+
+# 4. Verify installation
+oc get pods -n my-operator-ns
+oc get csv -n my-operator-ns
+oc get subscriptions -n my-operator-ns
+
+# 5. Create the Operator instance (CRD)
+cat &gt; operator-instance.yaml &lt;&lt;'EOF'
+apiVersion: example.com/v1
+kind: MyOperator
+metadata:
+  name: my-operator-instance
+  namespace: my-operator-ns
+spec:
+  # Operator-specific configuration
+  replicas: 1
+EOF
+
+oc apply -f operator-instance.yaml</code></pre>
+
+        <h2 id="uninstall">Uninstalling an Operator</h2>
+        <pre><code># Step 1: Delete the Operator instance (CRD)
+oc delete myoperator/my-operator-instance -n my-operator-ns
+
+# Step 2: Delete the Subscription
+oc delete subscription my-operator -n my-operator-ns
+
+# Step 3: Delete the ClusterServiceVersion (CSV)
+oc delete csv -n my-operator-ns my-operator.1.0.0
+
+# Step 4: Delete the Operator deployment
+oc delete deployment -n my-operator-ns my-operator
+
+# Step 5: (Optional) Delete the CatalogSource if you created one
+oc delete catalogsource my-catalog -n openshift-marketplace
+
+# Step 6: (Optional) Delete the namespace
+oc delete namespace my-operator-ns
+
+# Verify cleanup
+oc get pods -n my-operator-ns  # Should be empty
+oc get csv -n my-operator-ns  # Should be empty</code></pre>
+
+        <h2 id="delete">Deleting an Operator</h2>
+        <pre><code># Complete deletion (same as uninstall but more thorough)
+# 1. Delete all instances of the operator's CRD
+oc delete -l app=my-operator --all -n my-operator-ns
+
+# 2. Delete the subscription
+oc delete subscription my-operator -n my-operator-ns
+
+# 3. Delete the CSV
+oc delete csv -n my-operator-ns $(oc get csv -n my-operator-ns -o jsonpath='{.items[*].metadata.name}')
+
+# 4. Delete the operator deployment and related resources
+oc delete deployment -n my-operator-ns -l app=my-operator
+oc delete serviceaccount -n my-operator-ns -l app=my-operator
+oc delete clusterrole -l app=my-operator
+oc delete clusterrolebinding -l app=my-operator
+
+# 5. Delete CatalogSource (if custom)
+oc delete catalogsource -n openshift-marketplace my-catalog
+
+# 6. Delete the namespace
+oc delete namespace my-operator-ns
+
+# Verify complete removal
+oc get all -n my-operator-ns 2>/dev/null || echo "Namespace deleted"</code></pre>
+
+        <h2 id="manage">Managing Operator Lifecycles</h2>
+        <pre><code># View available channels for an operator
+oc get subscription -n my-operator-ns -o yaml
+
+# Upgrade an operator to a newer version
+oc edit subscription my-operator -n my-operator-ns
+# Update the spec.channel or spec.source
+
+# View operator history
+oc get csv -n my-operator-ns --sort-by=.metadata.creationTimestamp
+
+# View operator conditions
+oc describe csv &lt;csv-name&gt; -n my-operator-ns
+
+# Check operator installation status
+oc get subscriptions -n my-operator-ns
+oc get csv -n my-operator-ns
+
+# Change approval strategy
+# Automatic: InstallPlan is auto-applied
+# Manual: InstallPlan must be manually approved
+
+# For manual approval:
+oc get installplan -n my-operator-ns
+oc patch installplan &lt;installplan-name&gt; -n my-operator-ns --type merge -p '{"spec":{"approved":true}}'</code></pre>
+
+        <h2 id="olm">OLM Concepts</h2>
+        <pre><code># Key OLM objects:
+#   CatalogSource: Where operators are sourced from
+#   Subscription: Watches for operator updates
+#   ClusterServiceVersion (CSV): Defines the operator version
+#   InstallPlan: The plan to install/upgrade an operator
+#   OperatorGroup: Defines target namespaces for operators
+
+# OperatorGroup configuration
+cat &gt; operatorgroup.yaml &lt;&lt;'EOF'
+apiVersion: operators.coreos.com/v1alpha2
+kind: OperatorGroup
+metadata:
+  name: my-operator-group
+  namespace: my-operator-ns
+spec:
+  targetNamespaces:
+  - my-operator-ns
+  updateStrategy:
+    registryPoll:
+      interval: 10m
+EOF
+
+oc apply -f operatorgroup.yaml</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/operators/understanding-olm/understanding-olm.html" style="color:var(--accent)">OLM Documentation</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#install">Installing</a></li><li><a href="#uninstall">Uninstalling</a></li><li><a href="#delete">Deleting</a></li><li><a href="#manage">Managing Lifecycles</a></li><li><a href="#olm">OLM Concepts</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

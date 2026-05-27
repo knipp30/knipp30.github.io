@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Security — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Network Security</div>
+        <h1>Configure Network Security</h1>
+        <p>Networking components, SDN troubleshooting, external routes, ingress control, TLS, and network policies.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="networking-components">Configure Networking Components</h2>
+        <pre><code># View network operator status
+oc get co networking
+
+# Check network configuration
+oc get network.operator cluster -o yaml
+
+# Check default network configuration
+oc get network.operator cluster -o jsonpath='{.status}'
+
+# Network types
+#   OpenShiftSDN: Default SDN (3.14.x)
+#   OVN-Kubernetes: Recommended SDN (3.16+)
+
+# Check SDN version
+oc get clusterversion
+oc get network.operator cluster -o yaml | grep networkType
+
+# Configure SDN MTU
+cat &gt; network-config.yaml &lt;&lt;'EOF'
+apiVersion: network.operator.openshift.io/v1
+kind: Network
+metadata:
+  name: cluster
+spec:
+  defaultNetwork:
+    openshiftSDN:
+      mtu: 1450
+    # OR for OVN-Kubernetes
+    ovnKubernetes:
+      mtu: 1450
+  networkType: OpenShiftSDN
+EOF
+
+oc apply -f network-config.yaml</code></pre>
+
+        <h2 id="sdn-troubleshooting">Troubleshooting Software Defined Networking</h2>
+        <pre><code># Check SDN pods
+oc get pods -n openshift-sdn
+oc get pods -n openshift-ovn-kubernetes
+
+# Check SDN services
+oc get svc -n openshift-sdn
+
+# Check network operator logs
+oc logs -n openshift-sdn daemonset/openshift-sdn
+
+# Check node-level networking
+oc debug node/&lt;node-name&gt;
+# chroot /host
+# ip addr show
+# ip route show
+# ip neighbor show
+# iptables -L -n -v
+# ipvsadm -L -n
+# ping &lt;pod-ip&gt;  # from inside the debug pod
+
+# Check OVN pods and logs
+oc get pods -n openshift-ovn-kubernetes
+oc logs -n openshift-ovn-kubernetes daemonset/ovn-kubernetes
+
+# OVN troubleshooting
+oc debug node/&lt;node-name&gt;
+# chroot /host
+# ovn-nbctl show
+# ovn-nbctl ls-list
+# ovn-sbctl list ports
+# ovn-sbctl find logical-router</code></pre>
+
+        <h2 id="routes">Creating and Editing External Routes</h2>
+        <pre><code># Create a route
+cat &gt; route.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-app
+  namespace: my-project
+spec:
+  host: my-app.example.com
+  to:
+    kind: Service
+    name: my-app-service
+    weight: 100
+  port:
+    targetPort: 8080
+EOF
+
+oc apply -f route.yaml
+
+# Edit an existing route
+oc edit route/my-app -n my-project
+
+# Change route host
+oc patch route/my-app -n my-project -p '{"spec":{"host":"new-host.example.com"}}'
+
+# View route details
+oc describe route/my-app -n my-project
+
+# Route inspection
+oc get route -n my-project -o wide
+
+# Wildcard routes (cluster-wide default)
+# A wildcard subdomain is set at cluster install time
+# Access: https://&lt;route-host&gt;.&lt;wildcard-domain&gt;</code></pre>
+
+        <h2 id="ingress">Controlling Cluster Network Ingress</h2>
+        <pre><code># Ingress controller configuration
+oc get ingresscontroller -n openshift-ingress-operator
+oc get ingresscontrollers.config.openshift.io/cluster -o yaml
+
+# Custom ingress controller
+cat &gt; ingresscontroller.yaml &lt;&lt;'EOF'
+apiVersion: operator.openshift.io/v1
+kind: IngressController
+metadata:
+  name: custom-ingress
+  namespace: openshift-ingress-operator
+spec:
+  domain: custom.example.com
+  namespaceSelector:
+    matchLabels:
+      ingress-controller: "true"
+  endpointPublishingStrategy:
+    type: HostNetwork
+    hostNetwork:
+      port: 8080
+      protocol: TCP
+EOF
+
+# OpenShift Ingress Operator (default)
+oc get pods -n openshift-ingress-operator
+
+# Manage default ingress controller
+oc edit ingresscontrollers.config.operator.openshift.io/cluster -n openshift-ingress-operator</code></pre>
+
+        <h2 id="tls">Securing Traffic with TLS Certificates</h2>
+        <pre><code># Create a TLS certificate
+openssl req -x509 -newkey rsa:2048 -keyout tls.key -out tls.crt -days 365 -nodes -subj "/CN=myapp.example.com"
+
+# Create a TLS secret
+oc create secret tls my-tls-secret --cert=tls.crt --key=tls.key -n my-project
+
+# Use TLS in a Route
+cat &gt; route-tls.yaml &lt;&lt;'EOF'
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-tls-route
+spec:
+  host: myapp.example.com
+  to:
+    kind: Service
+    name: my-app-service
+  tls:
+    termination: reencrypt
+    key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      ...
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+    destinationCACertificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+EOF
+
+oc apply -f route-tls.yaml
+
+# TLS Termination Types:
+#   edge: Router terminates TLS, HTTP to backend (default)
+#   reencrypt: Router terminates TLS, re-encrypts to backend
+#   passthrough: Router passes encrypted traffic through (backend terminates)
+#   none: No TLS
+
+# Configure TLS on Ingress Controller
+cat &gt; ingress-tls.yaml &lt;&lt;'EOF'
+apiVersion: operator.openshift.io/v1
+kind: IngressController
+metadata:
+  name: custom-ingress
+  namespace: openshift-ingress-operator
+spec:
+  domain: apps.example.com
+  tlsConfiguration:
+    minTLSVersion: VersionTLS12
+    cipherSuites:
+    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+EOF
+
+# View cluster-wide TLS settings
+oc get ingress.config/cluster -o yaml -n openshift-ingress</code></pre>
+
+        <h2 id="network-policies">Configuring Application Network Policies</h2>
+        <pre><code># Default: All pods can communicate with all pods (unless policies are applied)
+
+# Create a NetworkPolicy to restrict access
+cat &gt; networkpolicy.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+  namespace: my-project
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+EOF
+
+# Create a NetworkPolicy allowing specific access
+cat &gt; networkpolicy-allow.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web
+  namespace: my-project
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: database
+    ports:
+    - protocol: TCP
+      port: 5432
+EOF
+
+oc apply -f networkpolicy-allow.yaml
+
+# Multiple policy types
+cat &gt; networkpolicy-multi.yaml &lt;&lt;'EOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-api-policy
+  namespace: my-project
+spec:
+  podSelector:
+    matchLabels:
+      app: web-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: frontend
+      podSelector:
+        matchLabels:
+          role: web
+    - ipBlock:
+        cidr: 10.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8443
+EOF
+
+oc apply -f networkpolicy-multi.yaml
+
+# View network policies
+oc get networkpolicy -n my-project
+oc describe networkpolicy/web-api-policy -n my-project</code></pre>
+
+        <h2 id="cluster-network">Cluster Network Configuration</h2>
+        <pre><code># View cluster network configuration
+oc get network cluster -o yaml
+
+# View service network
+oc get network cluster -o jsonpath='{.spec.serviceNetwork}'
+
+# View pod network
+oc get network cluster -o jsonpath='{.spec.podNetwork}'
+
+# View MTU
+oc get network cluster -o jsonpath='{.spec.podNetworkCIDR}'
+
+# View cluster DNS
+oc get clidns cluster -o yaml</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/networking/" style="color:var(--accent)">Networking Overview</a> · <a href="https://docs.openshift.com/container-platform/4.18/networking/network_policy/" style="color:var(--accent)">Network Policies</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#networking-components">Networking Components</a></li><li><a href="#sdn-troubleshooting">SDN Troubleshooting</a></li><li><a href="#routes">External Routes</a></li><li><a href="#ingress">Ingress Control</a></li><li><a href="#tls">TLS Certificates</a></li><li><a href="#network-policies">Network Policies</a></li><li><a href="#cluster-network">Cluster Network</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

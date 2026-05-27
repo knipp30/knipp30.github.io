@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Self-Service — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Developer Self-Service</div>
+        <h1>Enable Developer Self-Service</h1>
+        <p>Resource quotas, limits, requirements, and project templates for developer productivity.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2>
+        <p>Resource quotas and limits allow cluster administrators to control resource consumption per project while enabling developers to self-service their workloads.</p>
+
+        <h2 id="cluster-quotas">Configuring Cluster Resource Quotas</h2>
+        <pre><code># ResourceQuota in a project
+cat &gt; resourcequota.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: project-quota
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "10"
+    configmaps: "20"
+    secrets: "20"
+    resourcequota.openshift.io requests.storage: 100Gi
+EOF
+
+oc apply -f resourcequota.yaml -n my-project
+
+# View quota usage
+oc adm quota -n my-project
+oc describe quota/project-quota -n my-project
+
+# View quota usage as JSON
+oc adm quota -n my-project --showusage</code></pre>
+
+        <h2 id="project-quotas">Configuring Project Quotas</h2>
+        <pre><code># Create a project with resource quota
+oc new-project my-project --description="My Project"
+
+# Apply ResourceQuota to the project
+cat &gt; project-quota.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+EOF
+
+oc apply -f project-quota.yaml -n my-project
+
+# Storage quota
+cat &gt; storage-quota.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: storage-resources
+spec:
+  hard:
+    requests.storage: 50Gi
+    persistentvolumeclaims: "5"
+EOF
+
+oc apply -f storage-quota.yaml -n my-project
+
+# Count-only quota
+cat &gt; count-quota.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-counts
+spec:
+  hard:
+    pods: "10"
+    services: "5"
+    persistentvolumeclaims: "5"
+    configmaps: "10"
+    secrets: "10"
+    resourcequota.openshift.io requests.storage: 25Gi
+EOF
+
+oc apply -f count-quota.yaml -n my-project</code></pre>
+
+        <h2 id="requirements">Configuring Project Resource Requirements</h2>
+        <pre><code># LimitRange: Enforce minimum/maximum/default resource requests
+cat &gt; limitrange.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+spec:
+  limits:
+  # Default container limits
+  - type: Container
+    default:
+      memory: "512Mi"
+      cpu: "500m"
+    defaultRequest:
+      memory: "256Mi"
+      cpu: "250m"
+    max:
+      memory: "2Gi"
+      cpu: "2"
+    min:
+      memory: "64Mi"
+      cpu: "50m"
+  # Default pod limits
+  - type: Pod
+    max:
+      cpu: "4"
+      memory: "4Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+  # PVC limits
+  - type: PersistentVolumeClaim
+    max:
+      storage: "10Gi"
+    min:
+      storage: "1Gi"
+EOF
+
+oc apply -f limitrange.yaml -n my-project
+
+# View LimitRange
+oc describe limitrange/default-limits -n my-project</code></pre>
+
+        <h2 id="limit-ranges">Configuring Project Limit Ranges</h2>
+        <pre><code># LimitRange for different resource types
+cat &gt; limitrange-multi.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: multi-resource-limits
+spec:
+  limits:
+  # Limits for containers
+  - type: Container
+    max:
+      memory: "4Gi"
+      cpu: "4"
+    min:
+      memory: "32Mi"
+      cpu: "10m"
+    default:
+      memory: "512Mi"
+      cpu: "500m"
+    defaultRequest:
+      memory: "256Mi"
+      cpu: "250m"
+  # Limits for pods
+  - type: Pod
+    max:
+      memory: "8Gi"
+      cpu: "8"
+  # Limits for PVCs
+  - type: PersistentVolumeClaim
+    max:
+      storage: "20Gi"
+    min:
+      storage: "1Gi"
+    default:
+      storage: "5Gi"
+  # Limits for requests
+  - type: ResourceClaim
+    max:
+      memory: "2Gi"
+      cpu: "2"
+    default:
+      memory: "256Mi"
+      cpu: "250m"
+EOF
+
+oc apply -f limitrange-multi.yaml -n my-project</code></pre>
+
+        <h2 id="project-templates">Configuring Project Templates</h2>
+        <pre><code># Create a custom project template
+cat &gt; project-template.yaml &lt;&lt;'EOF'
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: my-app-template
+  annotations:
+    description: "Template for creating a standard application"
+    icon-url: "https://www.example.com/icon.png"
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${APP_NAME}
+  spec:
+    replicas: ${REPLICAS:-1}
+    selector:
+      matchLabels:
+        app: ${APP_NAME}
+    template:
+      metadata:
+        labels:
+          app: ${APP_NAME}
+      spec:
+        containers:
+        - name: ${APP_NAME}
+          image: ${IMAGE:-nginx:latest}
+          ports:
+          - containerPort: ${PORT:-80}
+          resources:
+            requests:
+              cpu: ${CPU_REQ:-250m}
+              memory: ${MEM_REQ:-256Mi}
+            limits:
+              cpu: ${CPU_LIM:-500m}
+              memory: ${MEM_LIM:-512Mi}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${APP_NAME}-svc
+  spec:
+    selector:
+      app: ${APP_NAME}
+    ports:
+    - port: 80
+      targetPort: ${PORT:-80}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: ${APP_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${APP_NAME}-svc
+parameters:
+- name: APP_NAME
+  required: true
+- name: REPLICAS
+  value: "1"
+  required: false
+- name: IMAGE
+  value: nginx:latest
+  required: false
+- name: PORT
+  value: "80"
+  required: false
+- name: CPU_REQ
+  value: "250m"
+  required: false
+- name: MEM_REQ
+  value: "256Mi"
+  required: false
+- name: CPU_LIM
+  value: "500m"
+  required: false
+- name: MEM_LIM
+  value: "512Mi"
+  required: false
+EOF
+
+oc apply -f project-template.yaml -n my-project
+
+# Use the template
+oc process -f project-template.yaml -p APP_NAME=myapp -p IMAGE=myregistry.com/myapp:latest | oc apply -f -
+
+# List available templates
+oc get templates -n my-project</code></pre>
+
+        <h2 id="quotas-summary">Quota Summary and Best Practices</h2>
+        <pre><code># Check all quotas in a project
+oc get quota -n my-project
+
+# Check detailed quota usage
+oc adm quota -n my-project --showusage
+
+# Check LimitRanges
+oc get limitrange -n my-project
+oc describe limitrange &lt;limit-name&gt; -n my-project
+
+# Quota hierarchy:
+#   1. LimitRange: Sets defaults and constraints for containers/pods/PVCs in a namespace
+#   2. ResourceQuota: Sets aggregate resource limits for a namespace
+#   3. ClusterAdmin: Sets namespace-level defaults
+
+# Enable default resource requirements in a project
+cat &gt; namespace-resources.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-quota
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "50"
+EOF
+
+# Apply LimitRange for defaults
+cat &gt; default-limits.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+EOF
+
+oc apply -f namespace-resources.yaml -n my-project
+oc apply -f default-limits.yaml -n my-project</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/applications/quotas/quotas-setting-resource-constraint-namespace.html" style="color:var(--accent)">Quotas</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#cluster-quotas">Cluster Quotas</a></li><li><a href="#project-quotas">Project Quotas</a></li><li><a href="#requirements">Resource Requirements</a></li><li><a href="#limit-ranges">Limit Ranges</a></li><li><a href="#project-templates">Project Templates</a></li><li><a href="#quotas-summary">Summary</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

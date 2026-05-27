@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage OpenShift Container Platform — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / Manage OpenShift</div>
+        <h1>Manage OpenShift Container Platform</h1>
+        <p>Web console, CLI management, projects, images, resource queries, monitoring, logs, health assessment, and troubleshooting.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2>
+        <p>This section covers the core OpenShift administration tasks required for EX280. All configurations must persist after reboot.</p>
+
+        <h2 id="web-console">Web Console Management</h2>
+        <pre><code># Access the web console
+# Navigate to https://&lt;cluster-api&gt;:6443
+
+# Key console areas:
+#   - Home → Overview of cluster status
+#   - Administrator → Cluster Settings, Storage, Networking
+#   - Developer → Projects, Applications, Topology
+#   - OperatorHub → Install operators</code></pre>
+
+        <h2 id="cli-management">CLI Management (oc)</h2>
+        <pre><code># Login to the cluster
+oc login https://&lt;cluster-api&gt;:6443 -u &lt;user&gt; -p &lt;password&gt;
+
+# Or using a token
+oc login https://&lt;cluster-api&gt;:6443 --token=&lt;token&gt;
+
+# View cluster version
+oc get clusterversion
+
+# View cluster operators status
+oc get co
+
+# View operator status with additional detail
+oc get co -o wide
+
+# Check operator conditions
+oc describe clusteroperators &lt;operator&gt;
+
+# View node status
+oc get nodes -o wide</code></pre>
+
+        <h2 id="projects">Creating and Deleting Projects</h2>
+        <pre><code># Create a project
+oc new-project my-app
+
+# Or using oc create
+oc create project my-app --description="My Application" --annotations="purpose=testing"
+
+# Switch to a project
+oc project my-app
+
+# List current project
+oc project
+
+# List all projects
+oc get projects
+
+# Delete a project
+oc delete project my-app
+
+# Create project with resource limits
+oc create project my-project
+oc annotate namespace my-project kubernetes.io/description="Production app"</code></pre>
+
+        <h2 id="images">Container Images</h2>
+        <pre><code># List images in a project
+oc get imagestreams -n &lt;project&gt;
+
+# View image stream tags
+oc get is &lt;image-stream-name&gt; -n &lt;project&gt;
+
+# View image details with digests
+oc describe imagestream &lt;image-stream-name&gt; -n &&lt;project&gt;
+
+# Identify images by tags and digests
+oc get is &lt;image-stream-name&gt; -o jsonpath='{.status.tags[].items[*].dockerImageReference}' -n &lt;project&gt;
+
+# Import an image from an external registry
+oc import-image &lt;image-name&gt;:&lt;tag&gt; --from=&lt;registry&gt;/&lt;repo&gt;/&lt;image&gt; -n &lt;project&gt;
+
+# Create an ImageStream from a Docker image
+oc create image-stream my-stream --docker-image=&lt;registry&gt;/&lt;image&gt;:&lt;tag&gt; -n &lt;project&gt;</code></pre>
+
+        <h2 id="query-resources">Query, Format, and Filter Resources</h2>
+        <pre><code># Basic get with various output formats
+oc get pods -o wide
+oc get pods -o yaml
+oc get pods -o json
+oc get pods -o jsonpath='{.items[*].metadata.name}'
+
+# Filter by label selector
+oc get pods -l app=myapp
+oc get pods -l 'app in (myapp, otherapp)'
+oc get pods -l 'app notin (blockedapp)'
+oc get pods -n &lt;project&gt; -l env=prod
+
+# Filter by field selector
+oc get pods --field-selector=status.phase=Running
+oc get pods --field-selector=status.phase=Failed
+
+# Watch resources for changes
+oc get pods -w
+oc get pods --watch
+
+# Get specific fields
+oc get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.podIP}{"\n"}{end}'
+
+# Describe resources for detailed info
+oc describe pod &lt;pod-name&gt;
+oc describe svc &lt;svc-name&gt;
+oc describe route &lt;route-name&gt;</code></pre>
+
+        <h2 id="import-export">Import, Export, and Configure Resources</h2>
+        <pre><code># Export resources to a file
+oc get svc,deploy,pods -o yaml &gt; resources.yaml
+oc get &lt;resource-type&gt;/&lt;resource-name&gt; -o yaml &gt; resource.yaml
+
+# Apply from a file
+oc apply -f resources.yaml
+
+# Create from a file
+oc create -f resources.yaml
+
+# Replace existing resources
+oc replace -f resources.yaml --force
+
+# Dry run (test without applying)
+oc apply -f resources.yaml --dry-run=client
+oc apply -f resources.yaml --dry-run=server
+
+# Edit resources directly
+oc edit pod &lt;pod-name&gt;
+oc edit deploy &lt;deploy-name&gt;
+
+# Patch resources
+oc patch deploy &lt;deploy-name&gt; -p '{"spec":{"replicas":3}}'
+oc patch pod &lt;pod-name&gt; -p '{"spec":{"nodeSelector":{"disktype":"ssd"}}}'</code></pre>
+
+        <h2 id="cluster-status">Cluster Status and Health</h2>
+        <pre><code># Overall cluster health
+oc get co
+
+# Check for degraded operators
+oc get co | grep Degraded
+
+# Get cluster events
+oc get events --sort-by=.metadata.creationTimestamp
+
+# Get events in a project sorted by severity
+oc get events --sort-by=.lastTimestamp -n &lt;project&gt;
+
+# Get events from the last hour
+oc get events --since=1h
+
+# Check node conditions
+oc get nodes -o jsonpath='{range .items[*].status.conditions[*]}{.type}{"\t"}{.status}{"\n"}{end}'
+
+# Check node resources
+oc adm top nodes
+oc adm top pods --sort-by=memory -n &lt;project&gt;</code></pre>
+
+        <h2 id="monitoring">Monitoring and Alerts</h2>
+        <pre><code># View Prometheus metrics (if accessible)
+# Default Prometheus at: https://&lt;cluster-api&gt;:6443/api/v1/namespaces/openshift-monitoring/services/http-prometheus:8080/proxy
+
+# Check Thanos Querier
+oc get svc -n openshift-monitoring | grep thanos
+
+# Get alerts
+oc get prometheusrules -n &lt;project&gt;
+
+# View alertmanager config
+oc get secret alertmanager-main -n openshift-monitoring -o jsonpath='{.data.data\.yaml}' | base64 -d
+
+# Check monitoring operator
+oc get co kube-apiserver
+oc get co openshift-monitoring</code></pre>
+
+        <h2 id="logs">Viewing Logs</h2>
+        <pre><code># View pod logs
+oc logs &lt;pod-name&gt;
+
+# View logs of a specific container in a multi-container pod
+oc logs &lt;pod-name&gt; -c &lt;container-name&gt;
+
+# Follow logs in real-time
+oc logs -f &lt;pod-name&gt;
+
+# View logs from previous instance of a pod
+oc logs &lt;pod-name&gt; --previous
+
+# View logs with timestamps
+oc logs &lt;pod-name&gt; --timestamps
+
+# Get logs from all pods matching a label
+oc logs -l app=myapp
+
+# Get logs from a specific namespace
+oc logs &lt;pod-name&gt; -n &lt;project&gt;
+
+# View logs from a deployment's pods
+oc logs -f dc/&lt;deploy-config-name&gt;
+
+# Get logs from a daemonset's pods
+oc logs -f ds/&lt;ds-name&gt;
+
+# View controller manager logs
+oc logs -n openshift-kube-apiserver kube-apiserver-&lt;node&gt;
+
+# View etcd logs (cluster admin)
+oc logs -n openshift-etcd etcd-&lt;node&gt;</code></pre>
+
+        <h2 id="health-assessment">Health Assessment</h2>
+        <pre><code># Comprehensive health check
+oc adm diagnostics
+
+# Check operator health
+oc get co -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[-1:].type}{"\t"}{.status.conditions[-1:].status}{"\n"}{end}'
+
+# Check etcd cluster health (cluster admin)
+oc adm diagnostic etcd-check-cluster-connected
+
+# Check API server health
+oc adm diagnostic api-server-check-etcd-connected
+
+# Node diagnostics
+oc adm diagnostics node-config-reflector
+
+# Storage diagnostics
+oc adm diagnostics storage
+
+# Network diagnostics
+oc adm diagnostics network
+
+# Check pod status comprehensively
+oc get pods --all-namespaces | grep -v Running
+
+# Check for pods in error state
+oc get pods --all-namespaces | grep -E 'ERROR|CrashLoop|Pending'
+
+# Check for failed nodes
+oc get nodes | grep -v Ready
+
+# Check for pending PVCs
+oc get pvc --all-namespaces | grep Pending</code></pre>
+
+        <h2 id="troubleshooting">Troubleshooting</h2>
+        <pre><code># Pod troubleshooting steps
+oc describe pod &lt;pod-name&gt; -n &lt;project&gt;
+
+# Check pod events
+oc get events --field-selector involvedObject.name=&lt;pod-name&gt; -n &lt;project&gt; --sort-by=.metadata.creationTimestamp
+
+# Check container status details
+oc get pod &lt;pod-name&gt; -o jsonpath='{.status.containerStatuses[*]}' -n &lt;project&gt;
+
+# Common issues:
+#   ImagePullBackOff: Check image name, registry credentials
+#   CrashLoopBackOff: Check logs, resource limits
+#   Pending: Check node resources, PVCs, tolerations
+#   ErrImagePull: Verify image path and tags
+#   ContainerCreating: Check volume mounts, security contexts
+
+# Node troubleshooting
+oc describe node &lt;node-name&gt;
+oc get events --field-selector involvedObject.name=&lt;node-name&gt;
+
+# Service troubleshooting
+oc get svc &lt;svc-name&gt; -n &lt;project&gt;
+oc get endpoints &lt;svc-name&gt; -n &lt;project&gt;
+oc debug node/&lt;node-name&gt;
+
+# Network troubleshooting
+oc debug pod/&lt;pod-name&gt; -n &lt;project&gt;
+# Inside debug session:
+#   curl http://&lt;service-name&gt;:&lt;port&gt;
+#   nc -zv &lt;service-name&gt; &lt;port&gt;
+
+# DNS troubleshooting
+nslookup kubernetes.default.svc.cluster.local
+dig kubernetes.default.svc.cluster.local @&lt;dns-ip&gt;</code></pre>
+
+        <h2 id="documentation">Using Product Documentation</h2>
+        <pre><code># Access documentation in-cluster
+oc logs -n openshift-bookinfo deployment/documentation
+
+# View CLI help
+oc help
+oc create --help
+oc apply --help
+
+# Get resource-specific help
+oc explain pod
+oc explain pod.spec
+oc explain pod.spec.securityContext
+oc explain service.spec.ports
+oc explain route.spec
+
+# Search documentation
+# https://docs.openshift.com/container-platform/4.18/</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/cli_reference/" style="color:var(--accent)">CLI Reference</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#web-console">Web Console</a></li><li><a href="#cli-management">CLI Management</a></li><li><a href="#projects">Projects</a></li><li><a href="#images">Images</a></li><li><a href="#query-resources">Query Resources</a></li><li><a href="#import-export">Import/Export</a></li><li><a href="#cluster-status">Cluster Status</a></li><li><a href="#monitoring">Monitoring</a></li><li><a href="#logs">Logs</a></li><li><a href="#health-assessment">Health Assessment</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#documentation">Documentation</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>

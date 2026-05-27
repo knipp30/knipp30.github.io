@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication & Authorization — EX280</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX280</a> / AuthN & AuthZ</div>
+        <h1>Manage Authentication & Authorization</h1>
+        <p>HTPasswd identity provider, user and group management, password modification, and permissions.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="htpasswd">HTPasswd Identity Provider</h2>
+        <pre><code># Create an htpasswd file using htpasswd utility
+htpasswd -bBC 10 -c /tmp/htpasswd admin mypassword
+
+# Add more users
+htpasswd -bB /tmp/htpasswd user1 password1
+htpasswd -bB /tmp/htpasswd user2 password2
+
+# Create the HTPasswd Secret in openshift-config namespace
+oc create secret generic htpass-secret --from-file=htpasswd=/tmp/htpasswd -n openshift-config
+
+# Create the HTPasswd provider configmap
+cat &gt; htpasswd-config.yaml &lt;&lt;'EOF'
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+  - name: htpasswd-provider
+    mappingMethod: claim
+    type: HTPasswd
+    htpasswd:
+      fileData:
+        name: htpass-secret
+EOF
+
+oc apply -f htpasswd-config.yaml
+
+# Verify identity provider configuration
+oc get oauth cluster -o yaml
+
+# Test login with HTPasswd
+oc login -u admin -p mypassword https://&lt;cluster-api&gt;:6443</code></pre>
+
+        <h2 id="users">Creating and Managing Users</h2>
+        <pre><code># Create a user (resource)
+cat &gt; user.yaml &lt;&lt;'EOF'
+apiVersion: user.openshift.io/v1
+kind: User
+metadata:
+  name: myuser@example.com
+  labels:
+    example: "true"
+# Note: Users are identity records, not Kubernetes resources
+EOF
+
+# Users are typically created via identity providers (HTPasswd, LDAP, etc.)
+# Verify users
+oc get identity
+
+# Verify user identity mapping
+oc get oauth
+
+# View user details
+oc whoami
+oc whoami --show-groups
+oc whoami --show-cert
+
+# Login as a user
+oc login -u myuser@example.com -p mypassword https://&lt;cluster-api&gt;:6443
+
+# Check what resources a user can access
+oc auth can-i create pods -n my-project
+oc auth can-i create deployments -n my-project
+oc auth can-i list pods --as=myuser@example.com</code></pre>
+
+        <h2 id="passwords">Modifying User Passwords</h2>
+        <pre><code># For HTPasswd users: update the htpasswd file and re-create the secret
+htpasswd -bB /tmp/htpasswd user1 newpassword
+
+# Delete the old secret and create a new one
+oc delete secret htpass-secret -n openshift-config
+oc create secret generic htpass-secret --from-file=htpasswd=/tmp/htpasswd -n openshift-config
+
+# Password must persist after reboot - keep the file on the master node
+# Store the htpasswd file in a persistent location
+cp /tmp/htpasswd /etc/origin/master/htpasswd
+
+# Verify
+oc login -u user1 -p newpassword https://&lt;cluster-api&gt;:6443</code></pre>
+
+        <h2 id="groups">Creating and Managing Groups</h2>
+        <pre><code># Create a group
+cat &gt; group.yaml &lt;&lt;'EOF'
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: developers
+users:
+- alice@example.com
+- bob@example.com
+EOF
+
+oc apply -f group.yaml
+
+# List groups
+oc get groups
+
+# View group members
+oc describe group developers
+
+# Add a user to a group
+oc adm groups add-users developers alice@example.com bob@example.com
+
+# Remove a user from a group
+oc adm groups remove-users developers alice@example.com
+
+# List groups for a user
+oc groups alice@example.com
+
+# List all users in a group
+oc get group developers -o yaml
+
+# Delete a group
+oc delete group developers</code></pre>
+
+        <h2 id="permissions">User and Group Permissions</h2>
+        <pre><code># Roles and RoleBindings
+cat &gt; role.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: my-project
+  name: pod-viewer
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+EOF
+
+oc apply -f role.yaml
+
+# Bind a role to a user
+cat &gt; rolebinding.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-viewer-binding
+  namespace: my-project
+subjects:
+- kind: User
+  name: alice@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-viewer
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f rolebinding.yaml
+
+# Bind a role to a group
+cat &gt; groupbinding.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developers-binding
+  namespace: my-project
+subjects:
+- kind: Group
+  name: developers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-viewer
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f groupbinding.yaml
+
+# Check permissions
+oc auth can-i create pods -n my-project --as=alice@example.com
+oc auth can-i create deployments -n my-project --as=alice@example.com
+
+# Cluster roles and bindings (cluster-wide)
+cat &gt; clusterrole.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+EOF
+
+oc apply -f clusterrole.yaml
+
+cat &gt; clusterrolebinding.yaml &lt;&lt;'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-readers
+subjects:
+- kind: Group
+  name: developers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: node-reader
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f clusterrolebinding.yaml
+
+# Predefined roles
+#   admin: Full access to namespace
+#   edit: Create/update/delete resources (cannot modify RBAC)
+#   view: Read-only access to resources
+oc adm policy add-cluster-role-to-user cluster-admin admin@example.com
+oc adm policy add-cluster-role-to-group cluster-admin developers</code></pre>
+
+        <h2 id="self-provisioner">Self-Provisioner ClusterRole</h2>
+        <pre><code># The self-provisioner ClusterRole allows users to create their own projects
+# Enable/disable self-provisioning
+oc adm policy remove-cluster-role-from-group self-provisioner system:authenticated:oauth
+oc adm policy add-cluster-role-to-group self-provisioner system:authenticated:oauth
+
+# View self-provisioner bindings
+oc get clusterrolebinding self-provisioners</code></pre>
+
+        <div class="callout">
+            <div class="callout-title">📖 Reference</div>
+            <p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/" style="color:var(--accent)">OpenShift 4.18 Documentation</a> · <a href="https://docs.openshift.com/container-platform/4.18/authentication/understanding-identity-user-client-auth.html" style="color:var(--accent)">Identity Management</a></p>
+        </div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#htpasswd">HTPasswd Provider</a></li><li><a href="#users">Users</a></li><li><a href="#passwords">Passwords</a></li><li><a href="#groups">Groups</a></li><li><a href="#permissions">Permissions</a></li><li><a href="#self-provisioner">Self-Provisioner</a></li>
+    </ul></aside></div>
+    <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
+</body>
+</html>
