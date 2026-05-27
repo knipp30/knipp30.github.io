@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture & Fundamentals — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Architecture & Fundamentals</div>
+            <h1>Architecture & Fundamentals</h1>
+            <p>Understand RHOAI's relationship with OpenShift, MLOps, GenAIOps, and key components</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="what-is-rhoai">What is OpenShift AI?</h2>
+<p>Red Hat OpenShift AI (RHOAI) is a platform on top of OpenShift Container Platform that provides an environment to develop, train, serve, test, and monitor AI/ML models and applications on-premise or in the cloud.</p>
+<p>RHOAI serves two primary user roles:</p>
+<ul>
+    <li><strong>Data Scientists</strong> — Create projects, workbenches, notebooks, train models, deploy models, and build pipelines</li>
+    <li><strong>Cluster Administrators</strong> — Install RHOAI, manage users, configure accelerators, manage resources</li>
+</ul>
+
+<h2 id="relationship-with-openshift">Relationship with OpenShift</h2>
+<p>RHOAI is an operator-based application deployed on OpenShift Container Platform. It leverages OpenShift's foundational capabilities:</p>
+<ul>
+    <li><strong>Container Orchestration</strong> — Pods, Deployments, Services managed by OpenShift</li>
+    <li><strong>Networking</strong> — Routes, Services, NetworkPolicies for model serving endpoints</li>
+    <li><strong>Security</strong> — RBAC, Service Accounts, SAs, SecurityContextConstraints</li>
+    <li><strong>Storage</strong> — PersistentVolumeClaims for model storage and data</li>
+    <li><strong>Accelerators</strong> — GPU, CPU, and accelerator management via OpenShift</li>
+</ul>
+<p>RHOAI is installed as an operator on OpenShift using the OperatorHub. Key components are deployed as CRDs (Custom Resource Definitions) in the <code>openshift-ai</code> namespace.</p>
+
+<h2 id="mlops-genaiops">MLOps and GenAIOps</h2>
+<p><strong>MLOps</strong> (Machine Learning Operations) covers the lifecycle of ML models from development to production:</p>
+<ul>
+    <li><strong>Develop</strong> — Data preparation, model training in Jupyter workbenches</li>
+    <li><strong>Validate</strong> — Model evaluation, bias detection with TrustyAI</li>
+    <li><strong>Deploy</strong> — Model serving via KServe (Single-Model or Multi-Model platforms)</li>
+    <li><strong>Monitor</strong> — Model performance, drift detection, hardware monitoring</li>
+    <li><strong>Retrain</strong> — Automated pipelines with Elyra/Kubeflow</li>
+</ul>
+<p><strong>GenAIOps</strong> extends this to Generative AI:</p>
+<ul>
+    <li>RAG (Retrieval-Augmented Generation) pipelines</li>
+    <li>Agentic AI with tools and multi-step reasoning</li>
+    <li>Guardrails for content safety</li>
+    <li>LLM optimization (compression, quantization with LLM Compressor)</li>
+</ul>
+
+<h2 id="rhoai-components">Key RHOAI Components</h2>
+<table>
+    <thead><tr><th>Component</th><th>Role</th></tr></thead>
+    <tbody>
+        <tr><td>Workbenches (Notebooks)</td><td>JupyterLab/VS Code environments for data scientists</td></tr>
+        <tr><td>KServe</td><td>Model serving with auto-scaling, canary deployments</td></tr>
+        <tr><td>Model Serving Runtimes</td><td>Configurable inference engines (vLLM, OpenVINO, TGIS, etc.)</td></tr>
+        <tr><td>Model Registry</td><td>Version tracking, packaging as OCI artifacts</td></tr>
+        <tr><td>TrustyAI</td><td>Fairness, bias, drift monitoring</td></tr>
+        <tr><td>Pipeline Servers (Elyra)</td><td>ML pipeline orchestration on KubeFlow SDK</td></tr>
+        <tr><td>Accelerators</td><td>GPU, CPU, and AI accelerator allocation</td></tr>
+        <tr><td>Data Connections</td><td>S3, database connections for data access</td></tr>
+    </tbody>
+</table>
+
+<h2 id="data-science-projects">Data Science Projects</h2>
+<p>In RHOAI, a <strong>project</strong> (not an OpenShift project) is a logical grouping of workbenches, models, pipelines, and connections for a specific data science effort. Each project provides:</p>
+<ul>
+    <li>Workbenches (Jupyter notebooks)</li>
+    <li>Pipeline servers</li>
+    <li>Model serving runtimes</li>
+    <li>Model registry connections</li>
+    <li>Storage (PVCs)</li>
+    <li>Data connections (S3, database)</li>
+    <li>Accelerators</li>
+</ul>
+<p>Projects are namespaced in OpenShift. The default namespaces created by OpenShift AI include <code>redhat-ods-applications</code> (dashboard components) and <code>rhods-notebooks</code> (workbenches).</p>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#what-is-rhoai">What is OpenShift AI?</a></li>
+                <li><a href="#relationship-with-openshift">Relationship with OpenShift</a></li>
+                <li><a href="#mlops-genaiops">MLOps and GenAIOps</a></li>
+                <li><a href="#rhoai-components">Key RHOAI Components</a></li>
+                <li><a href="#data-science-projects">Data Science Projects</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/getting_started_with_red_hat_openshift_ai_self-managed/" style="color:var(--accent)">Getting Started with RHOAI 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/managing_openshift_ai/" style="color:var(--accent)">Managing OpenShift AI 2.25</a></p></div>
+    </div>
+</body>
+</html>

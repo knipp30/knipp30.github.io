@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTP / Chrony — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Chrony</div>
+        <h1>NTP / Chrony</h1>
+        <p>Time synchronization with chronyd, hardware clock management, and NTP security.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>RHEL 10 uses chrony as the default NTP implementation. It provides accurate time synchronization and handles intermittent network connections better than classic ntpd.</p><pre><code># Install chrony
+sudo dnf install -y chrony
+sudo systemctl enable --now chronyd
+
+# Check status
+sudo chronyc tracking
+sudo chronyc sources -v
+
+# Allow NTP through firewall
+sudo firewall-cmd --permanent --add-service=ntp
+sudo firewall-cmd --reload</code></pre><h2 id="configure">Configuration</h2><pre><code># Edit /etc/chrony.conf
+# Replace default servers with your preferred NTP sources:
+# server time.example.com iburst
+# server time2.example.com iburst
+# server time3.example.com iburst
+
+# Allow local clients to query (for internal NTP server)
+# allow 10.0.0.0/24
+
+# Act as NTP server for LAN
+sudo tee -a /etc/chrony.conf &lt;&lt;'EOF'
+local stratum 10
+allow 10.0.0.0/24
+EOF
+
+sudo systemctl restart chronyd</code></pre><h2 id="hwclock">Hardware Clock</h2><pre><code># Check hardware clock
+chronyc rtcshow
+
+# Sync hardware clock to system time
+sudo hwclock --systohc
+
+# Set hardware clock to UTC (default on RHEL)
+cat /etc/adjtime
+# Last line should be: UTC</code></pre><h2 id="troubleshoot">Troubleshooting</h2><pre><code># Force immediate synchronization (if offset is large)
+sudo chronyc makestep
+
+# Check drift rate
+sudo chronyc tracking | grep 'System time'
+
+# View chrony logs
+sudo journalctl -u chronyd
+
+# Test NTP reachability
+chronyc -n track
+chronyc -n sources</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://chrony-project.org/" style="color:var(--accent)">Chrony Project</a> &middot; <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/managing_overview_and_installing_systems/synchronizing_date_and_time" style="color:var(--accent)">RHEL 10 Time Synchronization</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#configure">Configuration</a></li><li><a href="#hwclock">Hardware Clock</a></li><li><a href="#troubleshoot">Troubleshooting</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

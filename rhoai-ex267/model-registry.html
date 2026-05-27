@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Registry — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Model Registry</div>
+            <h1>Model Registry</h1>
+            <p>Package, register, version, and deploy models as OCI artifacts</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="registry-overview">Model Registry Overview</h2>
+<p>The Model Registry in RHOAI provides version control for models. Models are stored as OCI image artifacts, enabling reproducibility and auditability.</p>
+<p><strong>Key concepts:</strong></p>
+<ul>
+    <li><strong>Model Registry</strong> — Central repository for model versions</li>
+    <li><strong>Model Catalog</strong> — Pre-built models available for deployment</li>
+    <li><strong>Artifact</strong> — An OCI image containing a model version</li>
+    <li><strong>Stage</strong> — Development, Staging, Production</li>
+</ul>
+
+<h2 id="enabling-registry">Enabling the Model Registry</h2>
+<p><strong>Admin steps:</strong></p>
+<ul>
+    <li>Set <code>managementState: Managed</code> for the <code>modelregistry</code> component in the <code>DataScienceCluster</code> CR</li>
+    <li>Configure the Model Registry CR with storage settings</li>
+    <li>Storage defaults to PVC; can also use S3 for production</li>
+</ul>
+
+<h2 id="creating-registries">Creating Model Registries</h2>
+<p>OpenShift AI administrators can create model registries from the dashboard. Data scientists with access can register, version, deploy, and track models.</p>
+<p><strong>Admin setup:</strong></p>
+<ul>
+    <li>Enable Model Registry component in the <code>DataScienceCluster</code> CR</li>
+    <li>Data scientists can register models from the dashboard or Model Catalog</li>
+</ul>
+
+<h2 id="registering-models">Registering and Versioning Models</h2>
+<p><strong>Through the UI:</strong></p>
+<ul>
+    <li>Open Model Registry → Register model</li>
+    <li>Enter model name, description</li>
+    <li>Enter version details: version name, model format (e.g., ONNX), format version</li>
+    <li>Specify model location: S3 connection details or URI</li>
+    <li>Models can also be registered directly from the Model Catalog</li>
+</ul>
+<p><strong>Model location types:</strong></p>
+<ul>
+    <li><strong>Object storage</strong> — Use an existing S3 connection or manually enter bucket/endpoint/path</li>
+    <li><strong>URI</strong> — Direct URI for public OCI repositories</li>
+</ul>
+
+<h2 id="deploying-registry-models">Deploying from Registry</h2>
+<p>Deploy models directly from the Model Registry:</p>
+<ul>
+    <li>Open Data Science Project → Models → Deploy Model</li>
+    <li>Select "Model Registry" as storage type</li>
+    <li>Choose the model and version from the registry</li>
+    <li>Configure serving parameters as usual</li>
+</ul>
+
+<h2 id="registry-api">Model Registry API</h2>
+<p>The Model Registry exposes a REST API for querying models. The API endpoints are accessible via the Model Registry service route:</p>
+<pre><code># Get all models
+curl https://modelregistry-host/apis/metadata.googleapis.com/v1/projects/default/models
+
+# Get model versions
+curl https://modelregistry-host/apis/metadata.googleapis.com/v1/artifacts?parent=projects/default/models/model-name
+
+# Get specific model version metadata
+curl https://modelregistry-host/apis/metadata.googleapis.com/v1/artifacts/artifact-id</code></pre>
+
+<h2 id="model-stages">Model Stages</h2>
+<table>
+    <thead><tr><th>Stage</th><th>Description</th></tr></thead>
+    <tbody>
+        <tr><td>Development</td><td>Model is being developed and tested</td></tr>
+        <tr><td>Staging</td><td>Model is validated and ready for review</td></tr>
+        <tr><td>Production</td><td>Model is approved for production deployment</td></tr>
+        <tr><td>Archived</td><td>Old model version kept for reference</td></tr>
+    </tbody>
+</table>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#registry-overview">Model Registry Overview</a></li>
+                <li><a href="#enabling-registry">Enabling the Model Registry</a></li>
+                <li><a href="#creating-registries">Creating Model Registries</a></li>
+                <li><a href="#registering-models">Registering and Versioning Models</a></li>
+                <li><a href="#deploying-registry-models">Deploying from Registry</a></li>
+                <li><a href="#registry-api">Model Registry API</a></li>
+                <li><a href="#model-stages">Model Stages</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_model_registries/" style="color:var(--accent)">Working with Model Registries 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_the_model_catalog/" style="color:var(--accent)">Working with the Model Catalog 2.25</a></p></div>
+    </div>
+</body>
+</html>

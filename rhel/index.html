@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo">
+                <span class="logo-icon">⚙</span> Red Hat Learning Hub
+            </a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="hero-content">
+            <h1>The Linux Administrator's Handbook</h1>
+            <p class="hero-sub">Practical guides for modern Linux infrastructure. From virtualization to GPU clusters — everything you need, nothing you don't.</p>
+            <div class="hero-stats">
+                <div class="stat"><span class="stat-num">18</span> Topics</div>
+                <div class="stat"><span class="stat-num">RHEL 10</span> Ready</div>
+                <div class="stat"><span class="stat-num">2026</span> Updated</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="section-header">
+            <h2>Topics</h2>
+            <p>Click a card to dive in. Each guide covers prerequisites, installation, configuration, and verification.</p>
+        </section>
+
+        <div class="card-grid">
+            <a href="kvm-rhel10.html" class="card">
+                <div class="card-icon">🖥</div>
+                <div class="card-body">
+                    <span class="card-tag">Virtualization</span>
+                    <h3>KVM on RHEL 10</h3>
+                    <p>Set up KVM virtualization on RHEL 10, including the new socket-activated libvirt services that replaced the old <code>libvirtd</code> daemon.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="containers.html" class="card">
+                <div class="card-icon">📦</div>
+                <div class="card-body">
+                    <span class="card-tag">Containers</span>
+                    <h3>Podman &amp; Containers</h3>
+                    <p>Dockerless container management with Podman. Rootless containers, pod networking, system containers, and container-compose.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="nvidia.html" class="card">
+                <div class="card-icon">🟢</div>
+                <div class="card-body">
+                    <span class="card-tag">GPU</span>
+                    <h3>NVIDIA Drivers</h3>
+                    <p>Install proprietary NVIDIA drivers on RHEL/Fedora. CUDA toolkit, GPU passthrough to VMs, and container GPU access with NVIDIA Container Toolkit.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="networking.html" class="card">
+                <div class="card-icon">🌐</div>
+                <div class="card-body">
+                    <span class="card-tag">Networking</span>
+                    <h3>Network Configuration</h3>
+                    <p>NetworkManager, nmcli, bridge interfaces, firewall configuration with firewalld, and bonding/teaming setups.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="storage.html" class="card">
+                <div class="card-icon">💾</div>
+                <div class="card-body">
+                    <span class="card-tag">Storage</span>
+                    <h3>LVM &amp; Storage</h3>
+                    <p>Logical Volume Management, LUKS encryption, RAID configuration, NFS mounts, and Btrfs snapshots.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="security.html" class="card">
+                <div class="card-icon">🔒</div>
+                <div class="card-body">
+                    <span class="card-tag">Security</span>
+                    <h3>Hardening &amp; SELinux</h3>
+                    <p>SELinux policies, SSH hardening, firewall rules, auditd, and CIS benchmark checklist for RHEL systems.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="systemd.html" class="card">
+                <div class="card-icon">⚡</div>
+                <div class="card-body">
+                    <span class="card-tag">Services</span>
+                    <h3>Systemd &amp; Services</h3>
+                    <p>Unit management, custom services, socket activation, quadlet files, timers, and journal logging.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="cockpit.html" class="card">
+                <div class="card-icon">🖥</div>
+                <div class="card-body">
+                    <span class="card-tag">Management</span>
+                    <h3>Cockpit Web Console</h3>
+                    <p>Remote server management, packageless sessions, HA cluster management, and VM administration.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="bootc.html" class="card">
+                <div class="card-icon">🐋</div>
+                <div class="card-body">
+                    <span class="card-tag">Immutable</span>
+                    <h3>Bootc &amp; Image Mode</h3>
+                    <p>OS-as-container deployment model with atomic upgrades, rollback, and immutable infrastructure.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="selinux.html" class="card">
+                <div class="card-icon">🛡</div>
+                <div class="card-body">
+                    <span class="card-tag">SELinux</span>
+                    <h3>SELinux Deep Dive</h3>
+                    <p>Custom policy creation, boolean management, file context transitions, and troubleshooting denials.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="chrony.html" class="card">
+                <div class="card-icon">⏰</div>
+                <div class="card-body">
+                    <span class="card-tag">Time</span>
+                    <h3>NTP / Chrony</h3>
+                    <p>Time synchronization with chronyd, hardware clock management, and NTP security.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="logging.html" class="card">
+                <div class="card-icon">📋</div>
+                <div class="card-body">
+                    <span class="card-tag">Logging</span>
+                    <h3>Log Management</h3>
+                    <p>systemd-journald, persistent logging, log rotation, rsyslog, and log analysis.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="users.html" class="card">
+                <div class="card-icon">👤</div>
+                <div class="card-body">
+                    <span class="card-tag">Identity</span>
+                    <h3>User &amp; Group Management</h3>
+                    <p>Local users, LDAP/SSSD integration, sudo configuration, PAM modules, and resource limits.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="kernel.html" class="card">
+                <div class="card-icon">⚙</div>
+                <div class="card-body">
+                    <span class="card-tag">Kernel</span>
+                    <h3>Kernel Tuning</h3>
+                    <p>sysctl parameters, EEVDF scheduler, systemd-udev rules, kernel modules, and performance tuning.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="crypto.html" class="card">
+                <div class="card-icon">🔑</div>
+                <div class="card-body">
+                    <span class="card-tag">Crypto</span>
+                    <h3>Cryptography &amp; TLS</h3>
+                    <p>Crypto policies, FIPS mode, certificate management, TLS configuration, and GPG keys.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="dnf.html" class="card">
+                <div class="card-icon">📦</div>
+                <div class="card-body">
+                    <span class="card-tag">Packages</span>
+                    <h3>Package Management</h3>
+                    <p>DNF package management, version locking, local repositories, module streams, and rollback.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="ha.html" class="card">
+                <div class="card-icon">🔗</div>
+                <div class="card-body">
+                    <span class="card-tag">HA</span>
+                    <h3>High Availability</h3>
+                    <p>Pacemaker, Corosync, PCS cluster management, resource agents, and STONITH fencing.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+
+            <a href="monitoring.html" class="card">
+                <div class="card-icon">📊</div>
+                <div class="card-body">
+                    <span class="card-tag">Monitoring</span>
+                    <h3>Monitoring &amp; Observability</h3>
+                    <p>sar, atop, bcc-tools, eBPF profiling, and Prometheus exporters for system performance.</p>
+                    <span class="card-link">Read guide →</span>
+                </div>
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        <p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p>
+    </footer>
+
+    <script>
+        document.querySelector('.menu-toggle').addEventListener('click', () => {
+            document.querySelector('.top-nav').classList.toggle('mobile-open');
+        });
+    </script>
+</body>
+</html>

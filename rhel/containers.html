@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Containers (Podman) — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Containers</div>
+        <h1>Containers (Podman)</h1>
+        <p>Podman, systemd container management, buildah, skopeo, and container networking on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>RHEL 10 ships with Podman as the default container engine (no daemon required). It supports Docker-compatible CLI, rootless containers, and systemd integration.</p><p class="callout" style="background:#fff3cd;padding:0.75em;border-left:3px solid #e67e22"><strong>RHEL 10 container changes:</strong> <code>slirp4netns</code> is deprecated in favor of <code>pasta</code>; CNI backend and <code>runc</code> have been removed. Podman now uses <code>crun</code> as the default runtime.</p><pre><code># Install Podman tools
+sudo dnf install -y podman buildah skopeo
+
+# Run a container
+podman run -d --name web -p 8080:80 nginx:latest
+
+# Rootless containers (no sudo needed)
+podman run -it fedora bash</code></pre><h2 id="systemd">Systemd Integration</h2><pre><code># Generate a systemd unit from a running container
+podman generate systemd --new --name web --files --restart-policy=on-failure
+
+# Move unit to systemd user directory
+mv container-web.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now container-web.service
+
+# Container auto-starts on boot with the user session
+loginctl enable-linger $USER</code></pre><h2 id="buildah">Buildah — Building Images</h2><pre><code># Build from a Containerfile
+buildah bud -t myapp:latest .
+
+# Or use podman build (wrapper around buildah)
+podman build -t myapp:latest .
+
+# Example Containerfile
+# FROM registry.access.redhat.com/ubi10/ubi-minimal
+# RUN dnf install -y httpd && dnf clean all
+# COPY index.html /var/www/html/
+# EXPOSE 80
+# CMD ["httpd", "-D", "FOREGROUND"]</code></pre><h2 id="skopeo">Skopeo — Image Management</h2><pre><code># Inspect an image without pulling
+skopeo inspect docker://docker.io/library/nginx:latest
+
+# Copy between registries
+skopeo copy docker://docker.io/library/nginx:latest docker://myregistry.example.com/nginx:latest
+
+# Copy to local OCI archive
+skopeo copy docker://docker.io/library/nginx:latest oci:nginx-archive:latest
+
+# Signature verification
+skopeo copy --signature-policy /path/to/policy.json docker://src docker://dest</code></pre><h2 id="volumes">Volumes &amp; Storage</h2><pre><code># Create a named volume
+podman volume create mydata
+
+# Use a volume
+podman run -d --name app -v mydata:/data myapp
+
+# Inspect volume location
+podman volume inspect mydata
+
+# Bind mount (host directory)
+podman run -d --name web -v /srv/www:/usr/share/nginx/html:ro nginx:latest</code></pre><h2 id="networking">Container Networking</h2><pre><code># List networks
+podman network ls
+
+# Create a custom network
+podman network create mynet
+
+# Connect containers
+podman run -d --name app1 --network mynet myapp
+podman run -d --name app2 --network mynet myapp
+
+# Containers can reach each other by name
+podman exec app1 ping app2</code></pre><h2 id="pod">Pods</h2><pre><code># Create a pod
+podman pod create --name webstack -p 80:80 -p 443:443
+
+# Add containers to the pod
+podman run -d --pod webstack --name nginx nginx:latest
+podman run -d --pod webstack --name php php:8-fpm
+
+# All containers in a pod share network namespace
+podman pod ps</code></pre><h2 id="security">Security</h2><pre><code># Run unprivileged (rootless)
+podman run -d --name app myapp
+
+# Drop capabilities
+podman run --cap-drop ALL --cap-add NET_BIND_SERVICE myapp
+
+# Read-only root filesystem
+podman run --read-only --tmpfs /tmp myapp
+
+# Seccomp profile
+podman run --security-opt seccomp=/path/to/seccomp.json myapp</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.podman.io/" style="color:var(--accent)">Podman Documentation</a> &middot; <a href="https://www.buildah.io/" style="color:var(--accent)">Buildah</a> &middot; <a href="https://github.com/containers/skopeo" style="color:var(--accent)">Skopeo</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#systemd">Systemd Integration</a></li><li><a href="#buildah">Buildah</a></li><li><a href="#skopeo">Skopeo</a></li><li><a href="#volumes">Volumes &amp; Storage</a></li><li><a href="#networking">Container Networking</a></li><li><a href="#pod">Pods</a></li><li><a href="#security">Security</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

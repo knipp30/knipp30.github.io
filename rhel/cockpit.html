@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cockpit Web Console — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Cockpit</div>
+        <h1>Cockpit Web Console</h1>
+        <p>Remote management, packageless sessions, HA cluster management, and VM administration.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>Cockpit is a web-based server management interface. RHEL 10 includes Cockpit with enhanced features for cluster management and virtualization.</p><pre><code># Install Cockpit
+sudo dnf install -y cockpit
+
+# Enable and start
+sudo systemctl enable --now cockpit.socket
+
+# Open firewall
+sudo firewall-cmd --permanent --add-service=cockpit
+sudo firewall-cmd --reload
+
+# Access at https://server:9090
+# Login with system user credentials</code></pre><h2 id="packages">Cockpit Packages</h2><pre><code># Install additional Cockpit modules
+sudo dnf install -y \
+  cockpit-packagekit \
+  cockpit-storaged \
+  cockpit-machines \
+  cockpit-podman \
+  cockpit-sosreport
+
+# HA cluster management
+sudo dnf install -y cockpit-ha-cluster
+
+# Reload after installing packages
+sudo systemctl try-restart cockpit.socket</code></pre><h2 id="packageless">Packageless Sessions (RHEL 10)</h2><p>RHEL 10 Cockpit supports packageless sessions, allowing you to connect to a remote host over SSH without installing Cockpit packages on it.</p><pre><code># Packageless mode connects over SSH without installing Cockpit on the remote host.
+# Use with cockpit-ws for proxy/fleet access
+sudo dnf install -y cockpit-ws
+sudo systemctl enable --now cockpit-ws</code></pre><h2 id="ha-cluster">HA Cluster Management</h2><pre><code># Install HA cluster packages
+sudo dnf install -y cockpit-ha-cluster pacemaker corosync pcs
+
+# Configure PCS (Pacemaker/Corosync Configuration System)
+sudo passwd hacluster
+
+# On each cluster node, enable and start pcsd
+sudo systemctl enable --now pcsd
+
+# Authorize nodes to communicate
+sudo pcs cluster auth node1 node2 node3
+
+# Create cluster
+sudo pcs cluster setup --name mycluster node1 node2 node3
+
+# Start cluster on all nodes
+sudo pcs cluster start --all
+sudo pcs cluster enable --all</code></pre><h2 id="machines">Virtual Machines</h2><p>Cockpit Machines module provides a web UI for managing KVM/Libvirt VMs.</p><pre><code># Install required packages
+sudo dnf install -y cockpit-machines libvirt-daemon qemu-kvm
+
+# Start modular libvirt daemons
+for drv in qemu network nodedev nwfilter secret storage interface; do
+  systemctl start virt${drv}d{,-ro,-admin}.socket
+done
+
+# Cockpit Machines uses Polkit for authorization
+# No group membership needed
+
+# Access via https://server:9090/machines</code></pre><h2 id="security">Cockpit Security</h2><pre><code># Restrict access to specific network
+sudo firewall-cmd --permanent --zone=trusted --add-service=cockpit
+sudo firewall-cmd --permanent --zone=trusted --add-source=10.0.0.0/8
+sudo firewall-cmd --reload
+
+# Configure TLS (cockpit uses self-signed cert by default)
+# Place custom cert and key:
+# /etc/cockpit/ws-certs.d/01-custom.cert
+
+# Limit cockpit access via Polkit rules or sudoers</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://cockpit-project.org/" style="color:var(--accent)">Cockpit Project</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_systems_in_the_rhel_web_console/index" style="color:var(--accent)">RHEL 10 Cockpit Guide</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#packages">Cockpit Packages</a></li><li><a href="#packageless">Packageless Sessions</a></li><li><a href="#ha-cluster">HA Cluster</a></li><li><a href="#machines">Virtual Machines</a></li><li><a href="#security">Cockpit Security</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

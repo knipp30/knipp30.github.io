@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Applications — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / GenAI Applications</div>
+            <h1>GenAI Applications</h1>
+            <p>Build RAG, streaming, agentic AI apps with guardrails</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="genai-patterns">GenAI Application Patterns</h2>
+<p>RHOAI supports building Generative AI applications using several patterns:</p>
+<ul>
+    <li><strong>Simple Prompt</strong> — Direct LLM queries</li>
+    <li><strong>Streaming Responses</strong> — Token-by-token output for real-time UX</li>
+    <li><strong>RAG</strong> — Retrieval-Augmented Generation with external knowledge</li>
+    <li><strong>Agentic AI</strong> — Autonomous agents with tools and reasoning</li>
+    <li><strong>Guardrails</strong> — Content safety and input validation</li>
+</ul>
+
+<h2 id="simple-app">Simple GenAI Application</h2>
+<pre><code># Basic LLM interaction
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://&lt;model-serving-endpoint&gt;/v1",
+    api_key="fake"  # No auth needed for in-cluster
+)
+
+response = client.chat.completions.create(
+    model="llama-2-7b",
+    messages=[{"role": "user", "content": "Explain quantum computing"}]
+)
+print(response.choices[0].message.content)</code></pre>
+
+<h2 id="streaming">Streaming Responses</h2>
+<pre><code># Stream token-by-token for real-time UX
+response = client.chat.completions.create(
+    model="llama-2-7b",
+    messages=[{"role": "user", "content": prompt}],
+    stream=True
+)
+
+for chunk in response:
+    token = chunk.choices[0].delta.content
+    if token:
+        print(token, end="", flush=True)</code></pre>
+
+<h2 id="rag">RAG (Retrieval-Augmented Generation)</h2>
+<p>RAG combines retrieval from a knowledge base with LLM generation:</p>
+<pre><code># RAG pattern with vector database
+from langchain.vectorstores import FAISS
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.llms import VLLMOpenAI
+
+# Load and embed documents
+vectorstore = FAISS.from_documents(docs, embeddings)
+
+# Retrieve relevant documents
+similar_docs = vectorstore.similarity_search(query, k=3)
+
+# Generate response with retrieved context
+context = "
+".join([d.page_content for d in similar_docs])
+prompt = f"Context: {context}\nQuestion: {query}"
+response = llm(prompt)</code></pre>
+<p><strong>Key components:</strong></p>
+<ul>
+    <li><strong>Document processing</strong> — Chunk, embed, and index documents</li>
+    <li><strong>Vector database</strong> — FAISS, Pinecone, Weaviate for similarity search</li>
+    <li><strong>Retrieval</strong> — Find relevant context for the query</li>
+    <li><strong>Generation</strong> — LLM generates response using retrieved context</li>
+</ul>
+
+<h2 id="agentic-ai">Agentic Applications</h2>
+<p>Agents use tools and multi-step reasoning to accomplish tasks:</p>
+<pre><code># Agent with tools
+from langchain.agents import AgentExecutor, create_react_agent
+
+tools = [search_tool, calculator_tool, database_tool]
+agent = create_react_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# Multi-step reasoning
+result = executor.run("What's the weather in Chicago and should I bring an umbrella?")</code></pre>
+<p><strong>Agent capabilities:</strong></p>
+<ul>
+    <li><strong>Tool use</strong> — Search, calculators, databases, APIs</li>
+    <li><strong>Multi-step reasoning</strong> — Break complex tasks into steps</li>
+    <li><strong>Memory</strong> — Short-term and long-term memory for context</li>
+    <li><strong>Planning</strong> — Plan and execute multi-step workflows</li>
+</ul>
+
+<h2 id="guardrails">Guardrails</h2>
+<p>Implement guardrails for content safety and input/output validation:</p>
+<ul>
+    <li><strong>Input validation</strong> — Filter malicious prompts (injection attacks, PII)</li>
+    <li><strong>Output filtering</strong> — Prevent generation of harmful content</li>
+    <li><strong>Rate limiting</strong> — Prevent abuse</li>
+    <li><strong>Context validation</strong> — Ensure retrieved context is relevant and accurate</li>
+</ul>
+<p><strong>Guardrail techniques:</strong></p>
+<ul>
+    <li>Sentiment analysis on input/output</li>
+    <li>Keyword/regex blocking for sensitive data</li>
+    <li>Classification models for content moderation</li>
+    <li>Relevance scoring for RAG context</li>
+</ul>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#genai-patterns">GenAI Application Patterns</a></li>
+                <li><a href="#simple-app">Simple GenAI Application</a></li>
+                <li><a href="#streaming">Streaming Responses</a></li>
+                <li><a href="#rag">RAG (Retrieval-Augmented Generation)</a></li>
+                <li><a href="#agentic-ai">Agentic Applications</a></li>
+                <li><a href="#guardrails">Guardrails</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p></footer>
+</body>
+</html>

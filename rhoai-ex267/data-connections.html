@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Connections — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Data Connections</div>
+            <h1>Data Connections</h1>
+            <p>Create S3, database connections and manage data access for workbenches</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="connection-overview">Data Connections Overview</h2>
+<p>RHOAI Data Connections provide a way to connect to external data sources like S3-compatible object storage and databases. They abstract the credential management and connection details by storing parameters (access key, secret key, endpoint, region, bucket) securely.</p>
+
+<h2 id="creating-connections">Creating Connections</h2>
+<p><strong>Steps:</strong></p>
+<ul>
+    <li>Open Data Science Project → Connections tab → Create Connection</li>
+    <li>Select a connection type:</li>
+</ul>
+
+<h3>S3-Compatible Object Storage</h3>
+<ul>
+    <li><strong>Connection Type:</strong> S3-Compatible</li>
+    <li><strong>Required fields:</strong>
+        <ul>
+            <li>Connection Name</li>
+            <li>Access Key / Secret Key (or IAM role for OpenShift-integrated storage)</li>
+            <li>Endpoint URL</li>
+            <li>Region</li>
+            <li>Bucket Name</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Database Connections</h3>
+<p>RHOAI supports database connections for external databases such as MySQL, MariaDB, and PostgreSQL. Configure the connection with:</p>
+<ul>
+    <li>Connection name and type (MySQL, MariaDB, PostgreSQL)</li>
+    <li>Host, port, database name</li>
+    <li>Authentication credentials</li>
+    <li>Connection parameters (SSL, timeout, etc.)</li>
+</ul>
+
+<h2 id="using-connections">Using Connections in Notebooks</h2>
+<p>Once created, connections are available in your workbench as environment variables. The exact variable names depend on the connection name you chose. For a connection named <code>my-s3-conn</code>, environment variables are prefixed with the connection name.</p>
+<pre><code># Access S3 connection from environment
+# Environment variable names depend on connection name
+import os
+
+# For an S3 connection named 'my-s3-conn':
+# RHOAI_CONN_MY_S3_CONN_ACCESS_KEY
+# RHOAI_CONN_MY_S3_CONN_SECRET_KEY
+# RHOAI_CONN_MY_S3_CONN_ENDPOINT
+# RHOAI_CONN_MY_S3_CONN_BUCKET
+
+import boto3
+s3 = boto3.client('s3',
+                  aws_access_key_id=os.environ['RHOAI_CONN_MY_S3_CONN_ACCESS_KEY'],
+                  aws_secret_access_key=os.environ['RHOAI_CONN_MY_S3_CONN_SECRET_KEY'],
+                  endpoint_url=os.environ['RHOAI_CONN_MY_S3_CONN_ENDPOINT'])</code></pre>
+
+<h2 id="s3-credentials">Using IAM Roles with OpenShift</h2>
+<p>For OpenShift-integrated S3-compatible storage, you can use IAM roles instead of static credentials:</p>
+<ul>
+    <li>Create an IAM role in your S3 provider</li>
+    <li>Attach the role to the service account in the workbench's namespace</li>
+    <li>RHOAI automatically mounts the credentials as environment variables</li>
+</ul>
+
+<h2 id="import-data">Importing Data</h2>
+<p>Connect to data sources and import data for training:</p>
+<pre><code># Read from S3
+import pandas as pd
+import boto3
+
+s3 = boto3.client('s3', ...)
+obj = s3.get_object(Bucket=bucket, Key='data/training_data.csv')
+df = pd.read_csv(obj['Body'])</code></pre>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#connection-overview">Data Connections Overview</a></li>
+                <li><a href="#creating-connections">Creating Connections</a></li>
+                <li><a href="#using-connections">Using Connections in Notebooks</a></li>
+                <li><a href="#s3-credentials">Using IAM Roles with OpenShift</a></li>
+                <li><a href="#import-data">Importing Data</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_connected_applications/" style="color:var(--accent)">Working with Connected Applications 2.25</a></p></div>
+    </div>
+</body>
+</html>

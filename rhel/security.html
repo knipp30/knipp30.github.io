@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Security</div>
+        <h1>Security</h1>
+        <p>SELinux, SSH hardening, Fail2Ban, auditd, firewalld, CIS benchmarks, and security auditing on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="selinux">SELinux</h2><p>SELinux (Security-Enhanced Linux) provides mandatory access control. RHEL 10 enables it by default in enforcing mode.</p><pre><code># Check SELinux status
+getenforce
+sestatus
+
+# View mode in config
+grep SELINUX /etc/selinux/config
+
+# Change to permissive (non-destructive)
+sudo setenforce 0
+
+# Restore file contexts after moving files
+sudo restorecon -Rv /var/www/html
+
+# Check file context
+ls -lZ /etc/passwd
+
+# Troubleshoot denials
+sudo ausearch -m avc -ts recent
+sudo sealert -a /var/log/audit/audit.log
+
+# Generate and install a custom policy
+sudo ausearch -c 'httpd' --raw | audit2allow -M myhttpd
+sudo semodule -i myhttpd.pp</code></pre><h2 id="ssh">SSH Hardening</h2><pre><code># Edit /etc/ssh/sshd_config
+# Key settings to apply:
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM yes
+X11Forwarding no
+MaxAuthTries 3
+ClientAliveInterval 300
+ClientAliveCountMax 2
+AllowUsers deploy admin
+
+# Apply changes
+sudo systemctl reload sshd
+
+# Generate key pair (client side)
+ssh-keygen -t ed25519 -C "admin@server"
+ssh-copy-id -i ~/.ssh/id_ed25519.pub user@server</code></pre><h2 id="fail2ban">Fail2Ban</h2><pre><code># Install
+sudo dnf install -y fail2ban
+sudo systemctl enable --now fail2ban
+
+# Create jail.local
+sudo tee /etc/fail2ban/jail.local &lt;&lt;'EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/secure
+bantime = 7200
+maxretry = 3
+EOF
+
+# Reload and verify
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd</code></pre><h2 id="auditd">Audit Framework</h2><pre><code># Install audit
+sudo dnf install -y audit audit-libs
+
+# Watch critical files
+sudo auditctl -w /etc/passwd -p wa -k identity
+sudo auditctl -w /etc/shadow -p wa -k identity
+sudo auditctl -w /etc/sudoers -p wa -k sudoers
+sudo auditctl -w /etc/selinux/ -p wa -k selinux
+
+# Make rules persistent in /etc/audit/rules.d/
+sudo tee /etc/audit/rules.d/important.rules &lt;&lt;'EOF'
+-w /etc/passwd -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k sudoers
+-w /usr/sbin/useradd -p x -k user_mod
+-w /usr/sbin/userdel -p x -k user_mod
+-w /usr/sbin/groupadd -p x -k group_mod
+-w /usr/sbin/groupdel -p x -k group_mod
+EOF
+
+# Query logs
+sudo ausearch -k identity
+sudo aureport --user --summary</code></pre><h2 id="firewall">Firewall Rules</h2><pre><code># Default zone: block all incoming, allow outgoing
+sudo firewall-cmd --set-default-zone=public
+
+# Allow only SSH
+sudo firewall-cmd --permanent --add-service=ssh
+sudo firewall-cmd --permanent --remove-service=dhcpv6-client
+sudo firewall-cmd --reload
+
+# IP-based access control
+sudo firewall-cmd --permanent --new-zone=trusted
+sudo firewall-cmd --permanent --zone=trusted --add-source=10.0.0.0/8
+sudo firewall-cmd --permanent --zone=trusted --add-service=ssh
+sudo firewall-cmd --permanent --zone=trusted --add-service=http
+sudo firewall-cmd --reload
+
+# Emergency lockdown (use firewalld, not iptables directly)
+# iptables bypasses firewalld's nftables backend in RHEL 10
+sudo firewall-cmd --panic-on
+
+# To disable panic mode:
+sudo firewall-cmd --panic-off</code></pre><h2 id="cis">CIS Benchmark</h2><pre><code># Install OpenSCAP (ships with RHEL 10)
+sudo dnf install -y openscap-scanner scap-security-guide
+
+# Run CIS profile evaluation
+sudo oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis_server \
+  --results cis-results.xml \
+  /usr/share/xml/scap/ssg/content/ssg-rhel10-ds.xml
+
+# Generate human-readable report
+sudo oscap xccdf generate guide \
+  /usr/share/xml/scap/ssg/content/ssg-rhel10-ds.xml &gt; cis-guide.html
+
+# Generate remediation script (shell)
+sudo oscap xccdf generate fix --profile xccdf_org.ssgproject.content_profile_cis_server \
+  --fix-type shell /usr/share/xml/scap/ssg/content/ssg-rhel10-ds.xml &gt; cis-remediate.sh</code></pre><h2 id="passwords">Password &amp; User Policy</h2><pre><code># Enforce password complexity via pam_pwquality
+# Edit /etc/security/pwquality.conf:
+minlen = 14
+minclass = 4
+diffchars = 8
+maxrepeat = 2
+
+# Password aging
+sudo chage -M 90 -W 14 -m 7 username
+
+# Lock unused accounts
+sudo usermod -L inactive_user
+
+# Remove sudo from unnecessary users
+sudo gpasswd -d username wheel
+
+# List users with login shells
+cat /etc/passwd | grep -v nologin | grep -v /bin/false</code></pre><h2 id="packages">Package Security</h2><pre><code># Security advisories are built into dnf in RHEL 10 (no separate plugin needed)
+
+# List all available security updates
+sudo dnf updateinfo list updates security
+
+# Install security updates only
+sudo dnf upgrade --security
+
+# Check CVE details
+sudo dnf updateinfo info CVE-2024-1234
+
+# GPG key verification (enabled by default in RHEL)
+sudo rpm -qa gpg-pubkey --qf '%{NAME}-%{VERSION}-%{RELEASE}(%{SUMMARY})\n'</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/security_guide/" style="color:var(--accent)">RHEL 10 Security Guide</a> &middot; <a href="https://www.cisbenchmark.org/" style="color:var(--accent)">CIS Benchmarks</a> &middot; <a href="https://github.com/ComplianceAsCode/content" style="color:var(--accent)">SCAP Security Guide</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#selinux">SELinux</a></li><li><a href="#ssh">SSH Hardening</a></li><li><a href="#fail2ban">Fail2Ban</a></li><li><a href="#auditd">Audit Framework</a></li><li><a href="#firewall">Firewall Rules</a></li><li><a href="#cis">CIS Benchmark</a></li><li><a href="#passwords">Password &amp; User Policy</a></li><li><a href="#packages">Package Security</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

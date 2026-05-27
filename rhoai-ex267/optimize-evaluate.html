@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimize & Evaluate Models — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Optimize & Evaluate</div>
+            <h1>Optimize & Evaluate Models</h1>
+            <p>LLM Compressor quantization, LMEval benchmarks, model optimization strategies</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="model-selection">Selecting Models</h2>
+<p>RHOAI provides access to pre-trained models through multiple sources:</p>
+<ul>
+    <li><strong>RHOAI Model Catalog</strong> — Curated models from Red Hat, IBM, Meta, Nvidia, Mistral AI, Google</li>
+    <li><strong>Hugging Face Hub</strong> — Thousands of community models (transformers, vision, audio)</li>
+    <li><strong>Model Registry</strong> — Internal organization models</li>
+</ul>
+<p>Hugging Face integration allows browsing and downloading models directly in the workbench:</p>
+<pre><code># Download a model from Hugging Face
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)</code></pre>
+
+<h2 id="llm-compressor">LLM Compressor (Quantization & Compression)</h2>
+<p>LLM Compressor is now generally available and fully integrated into standard OpenShift AI workbench images and pipelines. It reduces large language model size and improves inference performance.</p>
+<p><strong>Usage as a notebook task:</strong></p>
+<pre><code>from llmcompressor.transformers import Compressor
+
+# Compress a model
+compressor = Compressor.from_trained(
+    model=model,
+    tokenizer=tokenizer,
+    sparsity=0.5
+)
+compressed_model = compressor.compress()
+compressed_model.save_pretrained('./compressed-model/')</code></pre>
+<p><strong>Also available as a pipeline batch job</strong> for automated model optimization workflows.</p>
+<p><strong>Quantization types:</strong></p>
+<ul>
+    <li><code>int8</code> — 8-bit integer quantization (best speed, slight accuracy tradeoff)</li>
+    <li><code>int4</code> — 4-bit integer quantization (max compression)</li>
+    <li><code>fp8</code> — 8-bit floating point</li>
+    <li><code>compressed_sparse</code> — Sparse matrix compression</li>
+</ul>
+
+<h2 id="lmeval">LMEval (LLM Evaluation)</h2>
+<p>LMEval is a TrustyAI-based feature for evaluating LLM performance against standard and custom benchmarks. It is a Technology Preview feature configurable through the DSC resource.</p>
+<p><strong>Standard benchmarks:</strong></p>
+<ul>
+    <li><strong>HellaSwag</strong> — Commonsense reasoning</li>
+    <li><strong>PIQA</strong> — Physical commonsense reasoning</li>
+    <li><strong>Winogrande</strong> — Coreference resolution</li>
+    <li><strong>MMLU</strong> — Massive Multitask Language Understanding</li>
+    <li><strong>TruthfulQA</strong> — Truthfulness evaluation</li>
+</ul>
+<p><strong>Custom benchmarks:</strong></p>
+<ul>
+    <li>Define custom evaluation tasks with prompt templates</li>
+    <li>Use domain-specific test datasets</li>
+    <li>Custom metrics (F1, ROUGE, BLEU, custom scoring)</li>
+</ul>
+<p><strong>Administration:</strong> LMEval settings (<code>allowOnline</code>, <code>allowCodeExecution</code>) are configured through the <code>DataScienceCluster</code> resource's TrustyAI settings.</p>
+
+<h2 id="model-evaluation">Model Evaluation Metrics</h2>
+<p><strong>Classification:</strong> Accuracy, Precision, Recall, F1, AUC-ROC</p>
+<p><strong>Regression:</strong> MSE, RMSE, MAE, R²</p>
+<p><strong>LLM:</strong> Perplexity, BLEU, ROUGE, exact match</p>
+
+<h2 id="optimization-strategies">Optimization Strategies</h2>
+<table>
+    <thead><tr><th>Technique</th><th>Goal</th><th>Impact</th></tr></thead>
+    <tbody>
+        <tr><td>Quantization</td><td>Reduce model size</td><td>INT8/INT4 models, faster inference</td></tr>
+        <tr><td>Pruning</td><td>Remove unnecessary weights</td><td>Smaller models, faster inference</td></tr>
+        <tr><td>Knowledge Distillation</td><td>Train smaller model from larger</td><td>Similar accuracy, smaller footprint</td></tr>
+        <tr><td>Paging (vLLM)</td><td>Efficient KV cache</td><td>Higher throughput for LLMs</td></tr>
+        <tr><td>ONNX export</td><td>Hardware-agnostic format</td><td>OpenVINO, TensorRT acceleration</td></tr>
+    </tbody>
+</table>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#model-selection">Selecting Models</a></li>
+                <li><a href="#llm-compressor">LLM Compressor (Quantization & Compression)</a></li>
+                <li><a href="#lmeval">LMEval (LLM Evaluation)</a></li>
+                <li><a href="#model-evaluation">Model Evaluation Metrics</a></li>
+                <li><a href="#optimization-strategies">Optimization Strategies</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_the_model_catalog/" style="color:var(--accent)">Working with the Model Catalog 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/release_notes/" style="color:var(--accent)">RHOAI 2.25 Release Notes</a></p></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KVM on RHEL 10 — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">⚙</span> Red Hat Learning Hub</a>
+        </div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / KVM on RHEL 10</div>
+            <h1>KVM Virtualization on RHEL 10</h1>
+            <p>Set up KVM on RHEL 10 with the new socket-activated libvirt architecture.</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+            <h2 id="overview">Overview</h2>
+            <p>RHEL 10 replaces the single <code>libvirtd</code> daemon with a set of socket-activated services. Each driver (qemu, network, nodedev, nwfilter, secret, storage, interface) now has its own socket with three variants: standard, <code>-ro</code> (read-only), and <code>-admin</code>.</p>
+
+            <h2 id="prerequisites">Prerequisites</h2>
+            <ul>
+                <li>RHEL 10 installed and subscribed</li>
+                <li>CPU supports hardware virtualization (Intel VT-x / AMD-V)</li>
+                <li>BIOS/UEFI: Virtualization Technology set to Enabled</li>
+            </ul>
+
+            <h2 id="install">Install Packages</h2>
+            <h3>AMD64 / Intel 64</h3>
+            <pre><code>sudo dnf install qemu-kvm libvirt virt-install virt-viewer</code></pre>
+
+            <h3>ARM64 / IBM Z</h3>
+            <pre><code>sudo dnf install qemu-kvm libvirt virt-install</code></pre>
+
+            <h3>Optional</h3>
+            <pre><code># Web console VM management
+sudo dnf install cockpit-machines
+
+# Windows VM virtio drivers
+sudo dnf install virtio-win</code></pre>
+
+            <h2 id="services">Start Services</h2>
+            <blockquote>This is the main change from RHEL 9. The <code>libvirtd</code> service no longer exists.</blockquote>
+
+            <pre><code># Start all socket-activated libvirt services
+for drv in qemu network nodedev nwfilter secret storage interface; do
+  systemctl start virt${drv}d{,-ro,-admin}.socket
+done
+
+# Enable on boot
+for drv in qemu network nodedev nwfilter secret storage interface; do
+  systemctl enable virt${drv}d{,-ro,-admin}.socket
+done</code></pre>
+
+            <h2 id="verify">Verify</h2>
+            <pre><code>sudo virt-host-validate</code></pre>
+            <p>All checks should return <code>PASS</code>. If you see a <code>WARN</code> about hardware virtualization, verify your BIOS settings.</p>
+
+            <h2 id="user-access">User Access</h2>
+            <pre><code>sudo usermod -aG libvirt $USER</code></pre>
+            <p>Log out and back in for group changes to take effect.</p>
+
+            <h2 id="create-vm">Create Your First VM</h2>
+            <pre><code>sudo virt-install \
+  --name my-vm \
+  --memory 4096 \
+  --vcpus 2 \
+  --disk size=20 \
+  --cdrom /path/to/install.iso \
+  --os-variant rhel10.0 \ 
+  --graphics none \
+  --console pty,target_type=serial</code></pre>
+
+            <pre><code># List available OS variants
+virt-install --osinfo list</code></pre>
+
+            <h2 id="useful-commands">Useful Commands</h2>
+            <pre><code># List all VMs
+sudo virsh list --all
+
+# Start / shutdown a VM
+sudo virsh start my-vm
+sudo virsh shutdown my-vm
+
+# Check a specific service
+systemctl status virtqemud.socket
+
+# Console into a running VM
+sudo virsh console my-vm</code></pre>
+
+            <h2 id="changes">RHEL 10 Virtualization Changes</h2>
+            <table>
+                <thead>
+                    <tr><th>Change</th><th>Detail</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>libvirtd</code> daemon</td><td>Replaced by socket-activated per-driver services</td></tr>
+                    <tr><td><code>i440fx</code> machine type</td><td>Deprecated; use <code>q35</code> instead</td></tr>
+                    <tr><td><code>i440fx-rhel7.6</code></td><td>Removed entirely</td></tr>
+                    <tr><td>Legacy CPU models</td><td>Intel pre-Nehalem, AMD pre-Opteron G4 removed</td></tr>
+                    <tr><td>RDMA migration</td><td>Unsupported</td></tr>
+                    <tr><td><code>virt-p2v</code></td><td>Not available for RHEL 10 hosts</td></tr>
+                    <tr><td><code>/boot</code> partition</td><td>No longer separate in RHEL 10 disk images</td></tr>
+                </tbody>
+            </table>
+
+            <div class="callout">
+                <div class="callout-title">📖 Reference</div>
+                <p><a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/configuring_and_managing_linux_virtual_machines/index" style="color: var(--accent)">Configuring and Managing Linux VMs — RHEL 10</a></p>
+            </div>
+        </div>
+
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#prerequisites">Prerequisites</a></li>
+                <li><a href="#install">Install Packages</a></li>
+                <li><a href="#services">Start Services</a></li>
+                <li><a href="#verify">Verify</a></li>
+                <li><a href="#user-access">User Access</a></li>
+                <li><a href="#create-vm">Create Your First VM</a></li>
+                <li><a href="#useful-commands">Useful Commands</a></li>
+                <li><a href="#changes">RHEL 10 Changes</a></li>
+            </ul>
+        </aside>
+    </div>
+
+    <footer>
+        <p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p>
+    </footer>
+</body>
+</html>

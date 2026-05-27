@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Systemd & Services — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Systemd</div>
+        <h1>Systemd & Services</h1>
+        <p>Systemd unit management, quadlet files, socket activation, and RHEL 10 systemd changes.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>Systemd is the init system and service manager for RHEL 10. It manages services, sockets, timers, mounts, and more through unit files.</p><pre><code># Check service status
+systemctl status httpd
+
+# Enable and start a service
+sudo systemctl enable --now httpd
+
+# Stop and disable
+sudo systemctl disable --now httpd
+
+# List failed units
+systemctl --failed
+
+# List all loaded units
+systemctl list-units --type=service --state=running
+
+# View unit file
+systemctl cat httpd</code></pre><h2 id="custom-unit">Custom Unit Files</h2><pre><code># Create a custom service
+sudo tee /etc/systemd/system/myapp.service &lt;&lt;'EOF'
+[Unit]
+Description=My Application
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/myapp/bin/myapp
+Restart=on-failure
+RestartSec=5
+User=myapp
+Group=myapp
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp.service</code></pre><h2 id="socket">Socket Activation</h2><p>Socket activation starts services on-demand when a connection arrives, reducing boot time and resource usage.</p><pre><code># Example socket unit
+sudo tee /etc/systemd/system/myapp.socket &lt;&lt;'EOF'
+[Unit]
+Description=My App Socket
+
+[Socket]
+ListenStream=8080
+Accept=no
+
+[Install]
+WantedBy=sockets.target
+EOF
+
+# Matching service (Type=simple, no ExecStart needed for socket activation)
+sudo systemctl enable --now myapp.socket</code></pre><h2 id="quadlet">Quadlet Files (RHEL 10)</h2><p>Quadlet files let you manage Podman containers through systemd using <code>.container</code> and <code>.volume</code> unit files, similar to Docker Compose.</p><pre><code># Create a Quadlet container file
+sudo tee /etc/systemd/system/myapp.container &lt;&lt;'EOF'
+[Unit]
+Description=My App Container
+
+[Container]
+Image=registry.access.redhat.com/ubi10/ubi-minimal
+Exec=echo hello
+Port=8080:80
+Volume=data:/app/data:Z
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Optional volume file
+sudo tee /etc/systemd/system/myapp.volume &lt;&lt;'EOF'
+[Volume]
+Driver=local
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp.container</code></pre><h2 id="timers">Timers (cron replacement)</h2><pre><code># Create a timer unit
+sudo tee /etc/systemd/system/backup.timer &lt;&lt;'EOF'
+[Unit]
+Description=Daily Backup Timer
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+# Matching service
+sudo tee /etc/systemd/system/backup.service &lt;&lt;'EOF'
+[Unit]
+Description=Run Backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+EOF
+
+sudo systemctl enable --now backup.timer
+systemctl list-timers --all</code></pre><h2 id="journal">Journal &amp; Logs</h2><pre><code># View logs for a service
+sudo journalctl -u httpd
+
+# Follow logs in real time
+sudo journalctl -u httpd -f
+
+# Logs since last boot
+sudo journalctl -b
+
+# Logs from a specific time range
+sudo journalctl --since '2026-05-01' --until '2026-05-02'
+
+# Persistent logging (survives reboot)
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald</code></pre><h2 id="targets">Targets (Runlevels)</h2><pre><code># Current default target
+systemctl get-default
+
+# Change to multi-user (no GUI)
+sudo systemctl set-default multi-user.target
+
+# Change to graphical (with GUI)
+sudo systemctl set-default graphical.target
+
+# List available targets
+systemctl list-unit-files --type=target</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/systemd_administration_guide/" style="color:var(--accent)">RHEL 10 Systemd Guide</a> &middot; <a href="https://docs.podman.io/en/latest/systemd/index.html" style="color:var(--accent)">Podman Quadlet</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#custom-unit">Custom Unit Files</a></li><li><a href="#socket">Socket Activation</a></li><li><a href="#quadlet">Quadlet Files</a></li><li><a href="#timers">Timers</a></li><li><a href="#journal">Journal &amp; Logs</a></li><li><a href="#targets">Targets</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

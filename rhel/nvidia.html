@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA GPU — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / NVIDIA GPU</div>
+        <h1>NVIDIA GPU</h1>
+        <p>NVIDIA drivers, CUDA, GPU passthrough to VMs, and GPU access in containers on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+h2 id="overview">Overview</h2><p>RHEL 10 supports NVIDIA GPUs through NVIDIA's official repositories and the RHEL Extensions repository. The recommended approach is to use Red Hat's precompiled open kernel modules from Extensions.</p><pre><code># Prerequisites: enable CodeReady Builder, Extensions, and EPEL
+sudo subscription-manager repos --enable=codeready-builder-for-rhel-10-$(arch)-rpms
+sudo subscription-manager repos --enable=rhel-10-for-$(arch)-extensions-rpms
+sudo dnf install -y epel-release
+
+# Add NVIDIA CUDA repository (x86_64)
+# For aarch64, use sbsa/ instead of $(arch)/
+CUDA_ARCH="$(uname -m)"
+[ "$CUDA_ARCH" = "aarch64" ] && CUDA_ARCH="sbsa"
+sudo dnf config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/rhel10/${CUDA_ARCH}/cuda-rhel10.repo"
+
+# Install NVIDIA driver with precompiled open kernel module (recommended)
+sudo dnf install -y kmod-nvidia-open nvidia-driver-cuda
+
+# Alternative: DKMS kernel modules (if precompiled not available for your kernel)
+# kmod-nvidia-open-latest-dkms — open kernel module (DKMS)
+# kmod-nvidia-latest-dkms      — proprietary closed-source (DKMS)
+
+# Load kernel module and verify
+sudo modprobe nvidia
+sudo nvidia-smi</code></pre>
+sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel10/$(arch)/cuda-rhel10.repo
+sudo dnf clean all
+
+# Install CUDA toolkit
+sudo dnf install -y cuda-toolkit
+
+# Set environment
+echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc</code></pre><h2 id="persistenced">Persistence Mode</h2><pre><code># Enable NVIDIA Persistence Daemon (faster driver load on first use)
+sudo systemctl enable --now nvidia-persistenced
+
+# Verify
+systemctl status nvidia-persistenced</code></pre><h2 id="passthrough">GPU Passthrough to KVM VMs</h2><pre><code># 1. Identify GPU PCI address
+lspci | grep -i nvidia
+# Example: 01:00.0 VGA compatible controller: NVIDIA Corporation
+
+# 2. Bind GPU to vfio-pci
+echo 'options vfio-pci ids=10de:2231,10de:1aef' | sudo tee /etc/modprobe.d/vfio-pci.conf
+sudo grubby --update-kernel=ALL --args='rd.driver.blacklist=nvidia modprobe.blacklist=nvidia vfio-pci.ids=10de:2231,10de:1aef'
+
+# 3. Reboot and verify
+sudo dmesg | grep vfio-pci
+
+# 4. Attach to VM via virsh or virt-manager
+# In XML: &lt;hostdev mode='subsystem' type='pci' managed='yes'&gt;
+#   &lt;source&gt;&lt;address domain='0x0000' bus='0x01' slot='0x00' function='0x0'/&gt;
+# &lt;/hostdev&gt;</code></pre><h2 id="container-gpu">GPU in Containers</h2><pre><code># Install nvidia-container-toolkit
+sudo dnf install -y nvidia-container-toolkit
+
+# Generate CDI device definitions
+sudo nvidia-ctk cdi generate --output /etc/cdi/
+
+# Enable CDI in podman config
+echo 'cdi_enabled = true' | sudo tee -a /etc/containers/storage.conf
+
+# Run container with GPU
+podman run --rm --device=nvidia.com/gpu=all ubuntu nvidia-smi
+
+# Specific GPU
+podman run --rm --device=nvidia.com/gpu=0 ubuntu nvidia-smi</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.nvidia.com/cuda/cuda-installation-guide-linux/" style="color:var(--accent)">CUDA Installation Guide</a> &middot; <a href="https://github.com/NVIDIA/libnvidia-container" style="color:var(--accent)">libnvidia-container</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#cuda">CUDA Toolkit</a></li><li><a href="#persistenced">Persistence Mode</a></li><li><a href="#passthrough">GPU Passthrough</a></li><li><a href="#container-gpu">GPU in Containers</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

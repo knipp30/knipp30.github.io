@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Storage</div>
+        <h1>Storage</h1>
+        <p>LVM, LUKS encryption, software RAID, NFS, Btrfs, and storage management on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="lvm">LVM (Logical Volume Manager)</h2><p>LVM provides flexible storage management with volume groups, logical volumes, and snapshots.</p><pre><code># Create physical volume
+sudo pvcreate /dev/sdb
+
+# Create volume group
+sudo vgcreate vg_data /dev/sdb
+
+# Create logical volume (80% of VG)
+sudo lvcreate -l 100%FREE -n lv_data vg_data
+
+# Format and mount
+sudo mkfs.xfs /dev/vg_data/lv_data
+sudo mkdir -p /data
+sudo mount /dev/vg_data/lv_data /data
+
+# Extend a logical volume
+sudo lvextend -l +100%FREE /dev/vg_data/lv_data
+sudo xfs_growfs /data
+
+# LVM snapshot
+sudo lvcreate -s -n lv_data_snap -L 10G /dev/vg_data/lv_data</code></pre><h2 id="luks">LUKS Encryption</h2><pre><code># Encrypt a block device
+sudo cryptsetup luksFormat /dev/sdc
+sudo cryptsetup open /dev/sdc encrypted_data
+
+# Format inside the encrypted volume
+sudo mkfs.xfs /dev/mapper/encrypted_data
+
+# Mount
+sudo mount /dev/mapper/encrypted_data /mnt/data
+
+# Persistent entry in /etc/crypttab
+# encrypted_data /dev/disk/by-uuid/&lt;luks-uuid&gt; none luks
+
+# Change passphrase
+sudo cryptsetup luksChangeKey /dev/sdc
+
+# Add an additional key
+sudo cryptsetup luksAddKey /dev/sdc</code></pre><h2 id="raid">Software RAID</h2><pre><code># Install mdadm
+sudo dnf install -y mdadm
+
+# Create RAID-1 (mirror)
+sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+
+# Format and mount
+sudo mkfs.xfs /dev/md0
+sudo mkdir -p /raid
+sudo mount /dev/md0 /raid
+
+# Save config
+sudo mdadm --detail --scan | sudo tee -a /etc/mdadm.conf
+
+# Check status
+cat /proc/mdstat
+
+# Add a spare drive
+sudo mdadm --add /dev/md0 /dev/sdd
+
+# Replace a failed drive
+sudo mdadm --manage /dev/md0 --fail /dev/sdc
+sudo mdadm --manage /dev/md0 --remove /dev/sdc
+sudo mdadm --manage /dev/md0 --add /dev/sde</code></pre><h2 id="nfs">NFS</h2><pre><code># Server side
+sudo dnf install -y nfs-utils
+sudo mkdir -p /exports/share
+echo '/exports/share 10.0.0.0/24(rw,sync,root_squash)' | sudo tee -a /etc/exports
+sudo systemctl enable --now nfs-server
+
+# Client side
+sudo dnf install -y nfs-utils
+sudo mkdir -p /mnt/nfs
+sudo mount 10.0.0.1:/exports/share /mnt/nfs
+
+# Auto-mount via /etc/fstab
+# 10.0.0.1:/exports/share /mnt/nfs nfs defaults,_netdev 0 0</code></pre><h2 id="btrfs">Btrfs</h2><p><strong>Btrfs is not supported on RHEL 10.</strong> The <code>btrfs-progs</code> package is available from EPEL, but Red Hat does not support Btrfs as a filesystem on RHEL. Use at your own risk..</p><pre><code># Install prerequisites
+sudo dnf install -y epel-release btrfs-progs
+
+# Format as Btrfs
+sudo mkfs.btrfs -d single /dev/sdb
+
+# Mount with compression
+sudo mount -o compress=zstd /dev/sdb /mnt/btrfs
+
+# Subvolumes
+sudo btrfs subvolume create /mnt/btrfs/home
+sudo btrfs subvolume list /mnt/btrfs
+
+# Snapshot
+sudo btrfs subvolume snapshot /mnt/btrfs/home /mnt/btrfs/home_snap
+
+# Send/receive (remote backup)
+sudo btrfs send /mnt/btrfs/home_snap | sudo btrfs receive /mnt/backup/</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/managing_overview_and_installing_systems/" style="color:var(--accent)">RHEL 10 Storage Guide</a> &middot; <a href="https://btrfs.readthedocs.io/" style="color:var(--accent)">Btrfs Wiki</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#lvm">LVM</a></li><li><a href="#luks">LUKS Encryption</a></li><li><a href="#raid">Software RAID</a></li><li><a href="#nfs">NFS</a></li><li><a href="#btrfs">Btrfs</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

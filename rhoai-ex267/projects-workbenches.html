@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Science Projects & Workbenches — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Projects & Workbenches</div>
+            <h1>Data Science Projects & Workbenches</h1>
+            <p>Create, configure, and manage projects, permissions, workbenches, and custom images</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="creating-projects">Creating and Managing Projects</h2>
+<p>Data Science Projects in RHOAI are a user-created organizational concept. They are NOT the same as Kubernetes/OpenShift projects (namespaces).</p>
+<p><strong>Steps to create a project via the UI:</strong></p>
+<ul>
+    <li>Navigate to OpenShift AI Dashboard → Data Science Projects → Create Data Science Project</li>
+    <li>Enter a unique project name and description</li>
+    <li>RHOAI creates an underlying OpenShift project (namespace) automatically</li>
+</ul>
+<p><strong>Managing project members:</strong></p>
+<ul>
+    <li>Open the project → Members tab</li>
+    <li>Add members by username (the username is the name you set for the user when creating the user)</li>
+    <li>Roles: <code>Admin</code> (full access) or <code>Read-only</code></li>
+</ul>
+
+<h2 id="permissions">Permissions Model</h2>
+<p>Permissions in RHOAI are hierarchical:</p>
+<ul>
+    <li><strong>Cluster Admin</strong> — Full OpenShift + RHOAI control</li>
+    <li><strong>RHOAI Admin</strong> — Manage RHOAI settings, workbench images, dashboard config</li>
+    <li><strong>Data Science Project Admin</strong> — Manage project resources, members</li>
+    <li><strong>Project Member</strong> — Access to project resources</li>
+    <li><strong>Read-only</strong> — View-only access</li>
+</ul>
+<p>The <code>admin</code> role for a project has access to all project resources including workbenches, models, pipelines, and storage.</p>
+
+<h2 id="creating-workbenches">Creating Workbenches</h2>
+<p>Workbenches are JupyterLab or VS Code instances running in OpenShift pods.</p>
+<p><strong>Creating a workbench:</strong></p>
+<ul>
+    <li>Open Data Science Project → Workbenches tab → Create Workbench</li>
+    <li>Name the workbench</li>
+    <li>Select IDE: JupyterLab or VS Code</li>
+    <li>Select a workbench image (default or custom)</li>
+    <li>Select size (CPU/memory): e.g., <code>4 CPU, 16Gi</code></li>
+    <li>Configure accelerator (GPU/CPU) if needed</li>
+</ul>
+<p><strong>Default workbench images include:</strong></p>
+<ul>
+<li><code>rohc-notebooks-jupyterhub</code> — JupyterLab with Python 3.12 (various images available including CUDA, PyTorch, TensorFlow variants)</li>
+    <li>Various images with pre-installed ML frameworks (TensorFlow, PyTorch)</li>
+</ul>
+
+<h2 id="custom-images">Custom Workbench Images</h2>
+<p>Data scientists can create custom images from existing ones:</p>
+<pre><code># From a running workbench, create a custom image
+# 1. Open the workbench → "Save as New Image" option
+# 2. Or use CLI with ImageStream CRD:
+
+# In JupyterLab, click File → New → Notebook to create from a workbench image
+# Or create a custom image by running a workbench, installing packages,
+# then using "Save as New Image" from the workbench controls
+</code></pre>
+
+<p><strong>Importing custom images into RHOAI:</strong></p>
+<ul>
+    <li>As a RHOAI admin: Resources → Cluster → Custom Workbench Images → Import Image</li>
+    <li>Specify the container image name and display name</li>
+    <li>The image becomes available when creating new workbenches</li>
+</ul>
+
+<h2 id="size-config">Workbench Sizes</h2>
+<p>Default size presets are defined as <code>StorageSize</code> and <code>CpuMemorySize</code> CRs:</p>
+<pre><code># Default CPU/Memory sizes
+apiVersion: dashboard.opendatahub.io/v1
+kind: CpuMemorySize
+metadata:
+  name: xsmall
+  namespace: openshift-ai-dashboard
+spec:
+  cpu: "0.5"
+  memory: "2Gi"</code></pre>
+<p>Available sizes: <code>xsmall</code>, <code>small</code>, <code>medium</code>, <code>large</code>, <code>xlarge</code></p>
+
+<h2 id="tensorboard">TensorBoard Integration</h2>
+<p>TensorBoard can be used for monitoring training processes:</p>
+<ul>
+    <li>Installed in workbench images by default</li>
+    <li>Start with: <code>tensorboard --logdir=./logs</code></li>
+    <li>Access via port-forwarding or the workbench's built-in URL</li>
+    <li>Monitor training metrics, hyperparameters, model graphs</li>
+</ul>
+
+<h2 id="ide-workspace">IDE Workspace Settings</h2>
+<p>Users can change their IDE workspace:</p>
+<ul>
+    <li>Click the gear icon (Settings) in the IDE</li>
+    <li>Navigate to Workspace settings</li>
+    <li>Change default file encoding, editor themes, etc.</li>
+</ul>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#creating-projects">Creating and Managing Projects</a></li>
+                <li><a href="#permissions">Permissions Model</a></li>
+                <li><a href="#creating-workbenches">Creating Workbenches</a></li>
+                <li><a href="#custom-images">Custom Workbench Images</a></li>
+                <li><a href="#size-config">Workbench Sizes</a></li>
+                <li><a href="#tensorboard">TensorBoard Integration</a></li>
+                <li><a href="#ide-workspace">IDE Workspace Settings</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_on_data_science_projects/" style="color:var(--accent)">Working on Data Science Projects 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_in_your_data_science_ide/" style="color:var(--accent)">Working in Your Data Science IDE 2.25</a></p></div>
+    </div>
+</body>
+</html>

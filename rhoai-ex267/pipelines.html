@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Science Pipelines — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Pipelines</div>
+            <h1>Data Science Pipelines</h1>
+            <p>Create pipelines with Elyra and KubeFlow SDK, manage artifacts and experiments</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="pipeline-overview">Pipeline Overview</h2>
+<p>RHOAI uses <strong>Elyra</strong> (a JupyterLab extension) and <strong>Kubeflow Pipelines 2.0 SDK</strong> for creating and managing data science pipelines. Pipelines can be defined visually in the Elyra Pipeline Editor or programmatically in Python.</p>
+
+<h2 id="enabling-pipelines">Enabling Pipeline Servers</h2>
+<p><strong>Through the UI:</strong></p>
+<ul>
+    <li>Open Data Science Project → Pipeline tab</li>
+    <li>Click "Enable Pipeline Server"</li>
+    <li>RHOAI deploys the Kubeflow Pipelines backend</li>
+    <li>Wait for the pipeline server to become ready</li>
+</ul>
+
+<h2 id="creating-pipelines">Creating Pipelines with Elyra</h2>
+<p><strong>Using the Elyra Pipeline Editor:</strong></p>
+<ul>
+    <li>Open JupyterLab → Elyra → Pipeline Editor</li>
+    <li>Drag and drop components onto the canvas</li>
+    <li>Connect components with arrows (data flow)</li>
+    <li>Configure each component's parameters</li>
+    <li>Save and upload to the pipeline server</li>
+</ul>
+<p><strong>Common pipeline components:</strong></p>
+<ul>
+    <li><strong>Data Prep</strong> — Load and preprocess data</li>
+    <li><strong>Train Model</strong> — Run training with specified hyperparameters</li>
+    <li><strong>Evaluate Model</strong> — Calculate metrics (accuracy, F1, etc.)</li>
+    <li><strong>Register Model</strong> — Push model to Model Registry</li>
+    <li><strong>Deploy Model</strong> — Deploy to model serving</li>
+</ul>
+
+<h2 id="kubeflow-sdk">Kubeflow SDK Pipelines</h2>
+<p>Pipelines are defined using the latest Kubeflow Pipelines 2.0 SDK in Python, then compiled to an IR YAML file.</p>
+<pre><code># Python pipeline using Kubeflow SDK
+from kfp import dsl
+from kfp.dsl import component
+
+@dsl.pipeline(name='training-pipeline')
+def training_pipeline(data_path: str, model_name: str):
+    data_prep = component(
+        name='Data Preparation',
+        container_image='quay.io/myorg/data-prep:latest',
+        command=['python', '/app/prep.py']
+    )
+
+    train = component(
+        name='Model Training',
+        container_image='quay.io/myorg/train:latest',
+        command=['python', '/app/train.py']
+    )
+
+    eval_op = component(
+        name='Model Evaluation',
+        container_image='quay.io/myorg/eval:latest',
+        command=['python', '/app/eval.py']
+    )
+
+    train.after(data_prep)
+    eval_op.after(train)
+
+# Compile the pipeline
+from kfp import compiler
+compiler.Compiler().compile(training_pipeline, 'pipeline.yaml')</code></pre>
+
+<h2 id="container-components">Container Components</h2>
+<p>Pipeline steps run as container images. Each component is a Docker/OCI container:</p>
+<pre><code># Example container component
+FROM python:3.12-slim
+RUN pip install pandas scikit-learn boto3
+COPY train.py /app/train.py
+CMD ["python", "/app/train.py"]</code></pre>
+
+<h2 id="artifacts">Managing Artifacts</h2>
+<p>Pipeline artifacts (models, datasets, metrics) are stored between pipeline steps:</p>
+<ul>
+    <li>Artifacts are stored in the pipeline server's PVC</li>
+    <li>Access via the <code>&lt;component_name&gt;.output</code> property</li>
+    <li>Artifacts are automatically versioned</li>
+</ul>
+
+<h2 id="pipeline-config">Kubernetes Pipeline Configuration</h2>
+<p>Pipelines can configure Kubernetes resources:</p>
+<ul>
+    <li>Node selectors for GPU workloads</li>
+    <li>Resource requests/limits</li>
+    <li>Service accounts for access control</li>
+    <li>Environment variables and secrets</li>
+</ul>
+
+<h2 id="experiments">Experiments</h2>
+<p>Experiments organize pipeline runs into logical groups for comparison:</p>
+<ul>
+    <li>Create an experiment in the Pipeline Server UI</li>
+    <li>Run multiple pipeline variations with different hyperparameters</li>
+    <li>Compare metrics across runs in the Runs view</li>
+    <li>Identify the best performing model version</li>
+</ul>
+<p><strong>Pipeline artifacts</strong> (models, datasets, metrics) are stored between pipeline steps and can be stored in S3-compatible object storage to avoid consuming local PVC storage.</p>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#pipeline-overview">Pipeline Overview</a></li>
+                <li><a href="#enabling-pipelines">Enabling Pipeline Servers</a></li>
+                <li><a href="#creating-pipelines">Creating Pipelines with Elyra</a></li>
+                <li><a href="#kubeflow-sdk">KubeFlow SDK Pipelines</a></li>
+                <li><a href="#container-components">Container Components</a></li>
+                <li><a href="#artifacts">Managing Artifacts</a></li>
+                <li><a href="#pipeline-config">Kubernetes Pipeline Configuration</a></li>
+                <li><a href="#experiments">Experiments</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_data_science_pipelines/" style="color:var(--accent)">Working with Data Science Pipelines 2.25</a></p></div>
+    </div>
+</body>
+</html>

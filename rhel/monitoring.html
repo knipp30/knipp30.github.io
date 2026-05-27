@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring &amp; Observability — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Monitoring</div>
+        <h1>Monitoring &amp; Observability</h1>
+        <p>sar, atop, bcc-tools, eBPF, and system performance monitoring on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="sar">sar (sysstat)</h2><pre><code># Install sysstat
+sudo dnf install -y sysstat
+
+# Enable data collection with systemd timers
+sudo systemctl enable --now sysstat-collect.timer sysstat-summary.timer
+
+# Configure retention in /etc/sysconfig/sysstat:
+# HISTORY=28  (default: 28 days)
+
+# Real-time CPU usage
+sar 1 5
+
+# Memory usage
+sar -r 1 5
+
+# Network statistics
+sar -n DEV 1 5
+
+# Disk I/O
+sar -d 1 5
+
+# I/O wait
+sar -q 1 5
+
+# Historical data
+sar -f /var/log/sa/sa01
+
+# Today's data
+sar</code></pre><h2 id="atop">atop</h2><p>atop provides a comprehensive overview of system resources with per-process details.</p><pre><code># Install atop
+sudo dnf install -y atop
+
+# Run interactively
+sudo atop
+
+# Run in batch mode (1-second intervals for 60 seconds)
+sudo atop 1 60
+
+# Enable logging (hourly)
+sudo systemctl enable --now atop-collect.timer
+
+# View historical logs
+ls /var/log/atop/
+sudo atop -r /var/log/atop/atop_20260501
+
+# Key bindings in atop:
+# P/C/M/D/N - toggle per-process CPU/Memory/Disk/Network
+# F5 - system overview
+# F9 - save buffer to file</code></pre><h2 id="bcc">bcc-tools &amp; eBPF</h2><pre><code># Install bcc-tools
+sudo dnf install -y bcc-tools bcc-devel perf
+
+# Top 10 processes by CPU
+sudo bpftrace -e 'profile:/hz=99 /pid > 1/ { @cpu[pid, comm] = count(); }'
+
+# Network connections per second
+sudo tcpconnect -t 5
+
+# File read/write latency
+sudo biolatency 1 5
+
+# Block I/O by device
+sudo biosnoop 5
+
+# Trace open() calls
+sudo opens
+
+# Profile system-wide CPU usage
+sudo profile 5
+
+# List available tools
+ls /usr/sbin/* | grep -E '(tcp|file|cpu|mem|block|runq)' | head</code></pre><h2 id="basic">Basic Tools</h2><pre><code># CPU and memory overview
+top
+htop
+
+# Disk usage
+du -sh /var/
+df -h
+
+# I/O wait (vmstat)
+vmstat 1 5
+
+# Network connections
+ss -s
+ss -tulnp
+
+# Process tree
+ps auxf
+
+# CPU per core
+mpstat -P ALL 1 5
+
+# I/O statistics
+iostat -x 1 5
+
+# Memory detail
+free -h
+cat /proc/meminfo</code></pre><h2 id="prometheus">Prometheus Exporters</h2><pre><code># Install node exporter for Prometheus (requires EPEL)
+sudo dnf install -y epel-release
+sudo dnf install -y prometheus-node-exporter
+sudo systemctl enable --now prometheus-node-exporter
+
+# Default endpoint
+curl localhost:9100/metrics
+
+# Bind to specific interface
+# Edit /etc/sysconfig/prometheus-node-exporter:
+# WEB_LISTEN_ADDRESS="10.0.0.5:9100"
+
+# Firewall
+sudo firewall-cmd --permanent --add-port=9100/tcp
+sudo firewall-cmd --reload</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://github.com/iovisor/bcc" style="color:var(--accent)">bcc-tools</a> &middot; <a href="https://github.com/atop/atop" style="color:var(--accent)">atop</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/monitoring_system_performance_with_red_hat_enterprise_linux/index" style="color:var(--accent)">RHEL 10 Monitoring Guide</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#sar">sar</a></li><li><a href="#atop">atop</a></li><li><a href="#bcc">bcc-tools &amp; eBPF</a></li><li><a href="#basic">Basic Tools</a></li><li><a href="#prometheus">Prometheus</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

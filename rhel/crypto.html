@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptography &amp; TLS — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Crypto</div>
+        <h1>Cryptography &amp; TLS</h1>
+        <p>Crypto policies, FIPS mode, certificate management, and TLS configuration on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="policies">Crypto Policies</h2><p>RHEL 10 uses the <code>update-crypto-policies</code> tool to manage system-wide cryptographic settings. Available profiles: DEFAULT, LEGACY, FIPS, FIPS-ONLY.</p><pre><code># View current policy
+update-crypto-policies --show
+
+# Change to LEGACY (supports older ciphers)
+sudo update-crypto-policies --set LEGACY
+
+# Change to FIPS mode
+sudo update-crypto-policies --set FIPS
+
+# FIPS-ONLY (FIPS without legacy fallback)
+sudo update-crypto-policies --set FIPS-ONLY
+
+# Custom policy with override
+sudo update-crypto-policies --set DEFAULT:
+  +ADH:
+  -RSA-PKCS1-SHA1
+
+# Reboot may be required for FIPS changes
+sudo reboot</code></pre><h2 id="fips">FIPS Mode</h2><pre><code># Check FIPS status
+cat /proc/sys/crypto/fips_enabled
+
+# Enable FIPS (requires reboot)
+sudo grub2-editenv - set fips=1
+sudo reboot
+
+# Verify after reboot
+cat /proc/sys/crypto/fips_enabled
+fipsmode
+
+# FIPS-compliant SSH (only FIPS-approved ciphers)
+sudo sshd -T | grep -i cipher</code></pre><h2 id="certificates">Certificate Management</h2><pre><code># Install OpenSSL tools
+sudo dnf install -y openssl
+
+# Generate a private key and CSR
+sudo openssl req -newkey rsa:4096 -nodes \
+  -keyout /etc/pki/tls/private/server.key \
+  -out /etc/pki/tls/certs/server.csr \
+  -subj '/CN=server.example.com/O=MyOrg/C=US'
+
+# Self-signed certificate (testing)
+sudo openssl req -x509 -newkey rsa:4096 -nodes \
+  -sha256 -days 365 \
+  -keyout /etc/pki/tls/private/server.key \
+  -out /etc/pki/tls/certs/server.crt
+
+# Check certificate details
+openssl x509 -in /etc/pki/tls/certs/server.crt -text -noout
+
+# Verify certificate against CA
+openssl verify -CAfile ca.crt server.crt</code></pre><h2 id="tls">TLS Configuration</h2><pre><code># Check supported TLS ciphers
+openssl ciphers -v 'ALL' | sort
+
+# Recommended TLS config for nginx:
+# ssl_protocols TLSv1.2 TLSv1.3;
+# ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+# ssl_prefer_server_ciphers on;
+
+# Test TLS configuration
+openssl s_client -connect server.example.com:443 -tls1_2
+openssl s_client -connect server.example.com:443 -tls1_3
+
+# System-wide CA trust store
+sudo cp my-ca.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust extract</code></pre><h2 id="gpg">GPG Key Management</h2><pre><code># Generate GPG key
+gpg --full-generate-key
+
+# List keys
+gpg --list-keys
+
+# Import a key
+gpg --import key.asc
+
+# Encrypt a file
+gpg --encrypt --recipient user@example.com file.txt
+
+# Decrypt a file
+gpg --decrypt file.txt.gpg
+
+# Sign a file
+gpg --sign file.txt
+
+# Verify signature
+gpg --verify file.txt.sig file.txt</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/security_guide/crypto_policies" style="color:var(--accent)">RHEL 10 Crypto Policies</a> &middot; <a href="https://www.openssl.org/" style="color:var(--accent)">OpenSSL</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#policies">Crypto Policies</a></li><li><a href="#fips">FIPS Mode</a></li><li><a href="#certificates">Certificates</a></li><li><a href="#tls">TLS Configuration</a></li><li><a href="#gpg">GPG Keys</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

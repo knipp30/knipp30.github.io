@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Management — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Logging</div>
+        <h1>Log Management</h1>
+        <p>systemd-journald, log rotation, persistent logging, and log analysis on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="journald">systemd-journald</h2><p>RHEL 10 uses systemd-journald as the system logging daemon. It collects logs from the kernel, systemd, and application services.</p><pre><code># View all logs
+sudo journalctl
+
+# View logs for a specific service
+sudo journalctl -u sshd
+
+# Follow logs in real time
+sudo journalctl -u sshd -f
+
+# Logs since last boot
+sudo journalctl -b
+
+# Logs from previous boot
+sudo journalctl -b -1
+
+# Priority filter (emerg=0..debug=7)
+sudo journalctl -p err
+sudo journalctl -p 3..4
+
+# Time range filter
+sudo journalctl --since '2 hours ago'
+sudo journalctl --since '2026-05-01' --until '2026-05-02'
+
+# Disk usage
+sudo journalctl --disk-usage
+
+# Vacuum by age or size
+sudo journalctl --vacuum-time=7d
+sudo journalctl --vacuum-size=500M</code></pre><h2 id="persistent">Persistent Logging</h2><p>By default, journal logs are in memory and lost on reboot. Enable persistent storage to survive reboots.</p><pre><code># Enable persistent journal
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+sudo systemctl restart systemd-journald
+
+# Verify
+ls -la /var/log/journal/</code></pre><h2 id="rotate">Log Rotation</h2><pre><code># Configure journal size limits in /etc/systemd/journald.conf:
+# SystemMaxUse=500M
+# SystemKeepFree=1G
+# SystemMaxFileSize=100M
+# MaxRetentionSec=1month
+# MaxFileSec=1day
+
+# For traditional syslog apps, logrotate handles rotation
+# Config files: /etc/logrotate.d/
+
+# Example logrotate config for custom app
+sudo tee /etc/logrotate.d/myapp &lt;&lt;'EOF'
+/var/log/myapp/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 myapp myapp
+    sharedscripts
+    postrotate
+        systemctl reload myapp
+    endscript
+}
+EOF
+
+# Test rotation
+sudo logrotate -d /etc/logrotate.d/myapp
+
+# Force rotation
+sudo logrotate -f /etc/logrotate.d/myapp</code></pre><h2 id="rsyslog">Rsyslog</h2><pre><code># Install rsyslog for traditional syslog
+sudo dnf install -y rsyslog
+sudo systemctl enable --now rsyslog
+
+# View traditional logs
+cat /var/log/messages
+cat /var/log/secure
+
+# Remote logging (server)
+# Edit /etc/rsyslog.conf:
+# module(load="imtcp" port="514")
+sudo systemctl restart rsyslog
+
+# Remote logging (client)
+sudo tee /etc/rsyslog.d/remote.conf &lt;&lt;'EOF'
+*.* @@logserver.example.com:514
+EOF
+sudo systemctl restart rsyslog</code></pre><h2 id="analysis">Log Analysis</h2><pre><code># Count log entries by service
+sudo journalctl --no-pager | awk '{print $7}' | sort | uniq -c | sort -rn | head
+
+# Find failed logins
+sudo journalctl -u sshd | grep 'Failed password'
+
+# Export logs to file
+sudo journalctl -b > /tmp/last-boot.log
+
+# Forward journal to rsyslog
+# Enable in /etc/systemd/journald.conf:
+# ForwardToSyslog=yes</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://www.freedesktop.org/software/systemd/man/systemd-journald.service.html" style="color:var(--accent)">systemd-journald</a> &middot; <a href="https://www.rsyslog.com/" style="color:var(--accent)">Rsyslog</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#journald">systemd-journald</a></li><li><a href="#persistent">Persistent Logging</a></li><li><a href="#rotate">Log Rotation</a></li><li><a href="#rsyslog">Rsyslog</a></li><li><a href="#analysis">Log Analysis</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

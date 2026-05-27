@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bootc &amp; Image Mode — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Bootc</div>
+        <h1>Bootc &amp; Image Mode</h1>
+        <p>OS-as-container deployment, immutable infrastructure, and container-based system updates on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>RHEL 10 introduces <code>bootc</code> — an OS-as-container deployment model. The entire OS is packaged as a container image, enabling atomic upgrades, rollback, and immutable infrastructure.</p><pre><code># Check bootc status
+sudo bootc status
+
+# System information
+sudo bootc info
+
+# List available updates
+sudo bootc update-check</code></pre><h2 id="update">System Updates</h2><pre><code># Update the OS (atomic, rollback-capable)
+sudo bootc update
+
+# Reboot to activate new OS version
+sudo reboot
+
+# Rollback to previous version
+sudo bootc reset
+sudo reboot
+
+# Verify active booted image
+sudo bootc status</code></pre><h2 id="custom-image">Building Custom OS Images</h2><pre><code># Example Containerfile for custom OS image
+# FROM registry.access.redhat.com/ubi10/ubi
+# RUN dnf install -y httpd && dnf clean all
+# RUN systemctl enable httpd
+# COPY server.conf /etc/httpd/conf.d/
+
+# Build the OS image
+buildah bud -t myos:latest .
+
+# Push to registry
+buildah push myos:latest docker://myregistry.example.com/myos:latest</code></pre><h2 id="install">Installing from Container Image</h2><pre><code># Install RHEL 10 in image mode from ISO
+# At installer, select 'Image Install' and provide container image URL
+
+# Or use bootc to install to a target device
+sudo bootc install to-disk /dev/sda --transport=registry myregistry.example.com/myos:latest
+
+# Configure container registry auth for the installed system
+sudo bootc registry login myregistry.example.com</code></pre><h2 id="layering">Package Layering</h2><pre><code># Install packages on top of the container OS
+sudo bootc pkg install nginx
+
+# Remove layered packages
+sudo bootc pkg remove nginx
+
+# List layered packages
+sudo bootc pkg list
+
+# After package changes, update and reboot
+sudo bootc update
+sudo reboot</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://containers.github.io/bootc/" style="color:var(--accent)">Bootc Documentation</a> &middot; <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/managing_container-based_systems/" style="color:var(--accent)">RHEL 10 Image Mode Guide</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#update">System Updates</a></li><li><a href="#custom-image">Custom OS Images</a></li><li><a href="#install">Installing</a></li><li><a href="#layering">Package Layering</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

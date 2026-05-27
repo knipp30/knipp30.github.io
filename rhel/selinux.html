@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SELinux Deep Dive — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / SELinux</div>
+        <h1>SELinux Deep Dive</h1>
+        <p>Custom policy creation, boolean management, file context transitions, and troubleshooting.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="concepts">Core Concepts</h2><p>SELinux enforces mandatory access control (MAC) using labels (user:role:type:level) and policies that define what each domain can access.</p><pre><code># Current mode
+getenforce
+
+# Detailed status
+sestatus
+
+# View file labels
+ls -lZ /etc/passwd
+
+# View process domain
+ps -eZ | grep httpd
+
+# View port labels
+semanage port -l | grep http
+
+# View boolean list
+getsebool -a</code></pre><h2 id="booleans">Boolean Management</h2><pre><code># Search for a boolean
+getsebool -a | grep httpd
+
+# Enable a boolean (runtime)
+sudo setsebool httpd_can_network_connect on
+
+# Enable permanently
+sudo setsebool -P httpd_can_network_connect on
+
+# Common booleans:
+# httpd_can_network_connect    — allow httpd outbound connections
+# httpd_can_network_connect_db — allow httpd to connect to databases
+# httpd_read_user_content      — allow httpd to read ~/public_html
+# ftpd_anon_write              — allow FTP anonymous writes
+# sftpd_anon_write             — allow SFTP anonymous writes</code></pre><h2 id="contexts">File Context Transitions</h2><pre><code># View default context for a path
+semanage fcontext -l | grep /var/www
+
+# Add a custom file context rule
+sudo semanage fcontext -a -t httpd_sys_content_t "/data/www(/.*)?"
+
+# Apply the context to existing files
+sudo restorecon -Rv /data/www
+
+# Verify
+ls -lZ /data/www/
+
+# Remove a file context rule
+sudo semanage fcontext -d "/data/www(/.*)?"
+
+# Temporarily change context (lost on restorecon)
+sudo chcon -t httpd_sys_content_t /data/www
+
+# Restore to default context
+sudo restorecon -Rv /var/www/</code></pre><h2 id="custom-policy">Custom Policy Creation</h2><pre><code># Install policy tools
+sudo dnf install -y policycoreutils-python-utils
+
+# Audit recent AVC denials
+sudo ausearch -m avc -ts recent
+
+# Generate policy module from audit log
+sudo ausearch -c 'myapp' --raw | audit2allow -M myapp_policy
+
+# Review the generated module (myapp_policy.te)
+cat myapp_policy.te
+
+# Install the module
+sudo semodule -i myapp_policy.pp
+
+# Verify installation
+sudo semodule -l | grep myapp
+
+# Remove module
+sudo semodule -r myapp_policy
+
+# Full workflow for a new application:
+# 1. Run app in permissive mode temporarily
+sudo setenforce 0
+# 2. Perform all required operations
+# 3. Re-enable enforcing
+sudo setenforce 1
+# 4. Collect denials and generate policy
+sudo ausearch -m avc -ts recent | audit2allow -M myapp
+sudo semodule -i myapp.pp</code></pre><h2 id="troubleshoot">Troubleshooting</h2><pre><code># Install sealert for human-readable analysis
+sudo dnf install -y setroubleshoot-server
+
+# Analyze denials
+sudo sealert -a /var/log/audit/audit.log
+
+# Analyze specific denial
+sudo sealert -l &lt;uuid-from-audit-log&gt;
+
+# Generate fix suggestions
+sudo sealert -a /var/log/audit/audit.log -m
+
+# Clear audit log (rotate via logrotate, do NOT use auditctl -D)
+# auditctl -D deletes audit RULES, not the log
+# sudo ausearch -m avc -ts recent  # Review denials first
+
+# View denial summary
+sudo ausearch -m avc -ts today | audit2why</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/security_guide/index" style="color:var(--accent)">RHEL 10 SELinux Guide</a> &middot; <a href="https://github.com/SELinuxProject/selinux/wiki" style="color:var(--accent)">SELinux Wiki</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#concepts">Core Concepts</a></li><li><a href="#booleans">Booleans</a></li><li><a href="#contexts">File Contexts</a></li><li><a href="#custom-policy">Custom Policy</a></li><li><a href="#troubleshoot">Troubleshooting</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

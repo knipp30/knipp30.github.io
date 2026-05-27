@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Monitoring — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Monitoring</div>
+            <h1>Model Monitoring</h1>
+            <p>Monitor bias and drift with TrustyAI, track hardware with Prometheus/Grafana</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="monitoring-overview">Model Monitoring Overview</h2>
+<p>RHOAI provides multiple monitoring capabilities:</p>
+<ul>
+    <li><strong>TrustyAI</strong> — Bias detection, data drift, concept drift monitoring</li>
+    <li><strong>OpenShift Monitoring Stack</strong> — Prometheus + Grafana for hardware metrics</li>
+    <li><strong>KServe Metrics</strong> — Inference performance metrics</li>
+</ul>
+
+<h2 id="trustyai-setup">Configuring TrustyAI</h2>
+<p><strong>Admin steps:</strong></p>
+<ul>
+    <li>Set <code>managementState: Managed</code> for the <code>trustyai</code> component in the <code>DataScienceCluster</code> CR</li>
+    <li>Configure monitoring for the model serving platform (KServe)</li>
+    <li>Optionally configure TrustyAI to use a MariaDB database instead of PVC storage</li>
+</ul>
+<p><strong>Install in a project:</strong></p>
+<ul>
+    <li>Open Data Science Project → TrustyAI → Install Service</li>
+    <li>This deploys TrustyAI components in the project namespace</li>
+</ul>
+
+<h2 id="bias-monitoring">Monitoring Model Bias</h2>
+<p>Bias monitoring checks for unfair patterns in model predictions based on sensitive attributes. TrustyAI calculates fairness metrics and provides bias reports.</p>
+<p><strong>Sensitive attribute types:</strong></p>
+<ul>
+    <li><code>BinarySensitiveField</code> — e.g., gender, race</li>
+    <li><code>AgeSensitiveField</code> — age ranges</li>
+    <li><code>GenderSensitiveField</code> — gender categories</li>
+</ul>
+
+<h2 id="drift-monitoring">Data Drift Monitoring</h2>
+<p>Drift detection compares input data distributions over time against the original training data. TrustyAI identifies shifts that could impact model accuracy.</p>
+<p>Drift metrics are calculated on a configurable schedule (default: 5 seconds) and stored in the TrustyAI service.</p>
+
+<h2 id="opentelemetry">OpenTelemetry / KServe Metrics</h2>
+<p>KServe exports metrics via OpenTelemetry:</p>
+<ul>
+    <li><strong>Request metrics</strong> — latency, throughput, error rates</li>
+    <li><strong>Predictor metrics</strong> — inference counts, batch sizes</li>
+    <li><strong>Auto-scaler metrics</strong> — pod scaling events</li>
+</ul>
+<p>Metrics endpoint: <code>http://&lt;model-endpoint&gt;/metrics</code></p>
+
+<h2 id="grafana">Grafana Dashboards</h2>
+<p>OpenShift AI provides pre-built Grafana dashboards:</p>
+<ul>
+    <li>Navigate to OpenShift Console → Observe → Dashboards</li>
+    <li>Select "OpenShift AI" dashboards for model serving metrics</li>
+    <li>Monitor GPU utilization, CPU, memory per model</li>
+</ul>
+
+<h2 id="hardware-metrics">Hardware Consumption Monitoring</h2>
+<p>Track GPU and hardware usage via OpenShift monitoring:</p>
+<ul>
+    <li>NVIDIA DCGM exporter for GPU metrics</li>
+    <li>GPU utilization, memory, temperature</li>
+    <li>Model-specific hardware allocation</li>
+    <li>Cost optimization: identify underutilized accelerators</li>
+</ul>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#monitoring-overview">Model Monitoring Overview</a></li>
+                <li><a href="#trustyai-setup">Configuring TrustyAI</a></li>
+                <li><a href="#bias-monitoring">Monitoring Model Bias</a></li>
+                <li><a href="#drift-monitoring">Data Drift Monitoring</a></li>
+                <li><a href="#opentelemetry">OpenTelemetry / KServe Metrics</a></li>
+                <li><a href="#grafana">Grafana Dashboards</a></li>
+                <li><a href="#hardware-metrics">Hardware Consumption Monitoring</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/monitoring_data_science_models/" style="color:var(--accent)">Monitoring Data Science Models 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/managing_and_monitoring_models/" style="color:var(--accent)">Managing and Monitoring Models 2.25</a></p></div>
+    </div>
+</body>
+</html>

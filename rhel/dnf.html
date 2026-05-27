@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Package Management — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / DNF</div>
+        <h1>Package Management</h1>
+        <p>DNF package management, version locking, local repositories, and module streams on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="basics">DNF Basics</h2><pre><code># Search for a package
+dnf search nginx
+
+# Install a package
+sudo dnf install -y nginx
+
+# Remove a package
+sudo dnf remove -y nginx
+
+# Update all packages
+sudo dnf update -y
+
+# List installed packages
+dnf list installed
+
+# Check package info
+dnf info nginx
+
+# What package provides a file?
+dnf provides */ssh</code></pre><h2 id="lock">Version Locking</h2><pre><code># Note: versionlock is built into DNF5 on RHEL 10
+# Lock a package at current version
+sudo dnf versionlock add nginx
+
+# View locked packages
+sudo dnf versionlock list
+
+# Unlock a package
+sudo dnf versionlock delete nginx
+
+# Lock all currently installed packages
+sudo dnf versionlock add \*
+
+# Unlock everything
+sudo dnf versionlock delete \*</code></pre><h2 id="repos">Repository Management</h2><pre><code># List configured repos
+dnf repolist
+
+# List all repos (including disabled)
+dnf repolist all
+
+# Enable a repo
+sudo dnf config-manager --set-enabled rhel-10-for-x86_64-appstream-rpms
+
+# Disable a repo
+sudo dnf config-manager --set-disabled rhel-10-for-x86_64-baseos-rpms
+
+# Add a local repo
+sudo tee /etc/yum.repos.d/local.repo &lt;&lt;'EOF'
+[local]
+name=Local Repository
+baseurl=file:///path/to/repo
+enabled=1
+gpgcheck=0
+EOF
+
+# Add remote repo
+sudo dnf config-manager --add-repo https://example.com/repo.repo</code></pre><h2 id="modules">Module Streams</h2><p>RHEL 10 AppStream provides multiple versions of applications via module streams.</p><pre><code># List available module streams
+dnf module list
+
+# Enable and install a specific stream
+sudo dnf module enable -y nodejs:20
+sudo dnf install -y nodejs
+
+# Switch streams (may require reset)
+sudo dnf module reset -y nodejs
+sudo dnf module enable -y nodejs:18
+
+# Show module profile
+dnf module info nodejs
+
+# Install with specific profile
+sudo dnf module install -y nodejs:20/common</code></pre><h2 id="history">DNF History &amp; Rollback</h2><pre><code># View transaction history
+dnf history
+
+# View details of a transaction
+dnf history info 5
+
+# Undo a transaction
+sudo dnf history undo 5
+
+# Redo a transaction
+sudo dnf history redo 5
+
+# Download packages without installing
+sudo dnf download --downloadonly nginx
+
+# Install from local RPM
+sudo dnf install /path/to/package.rpm</code></pre><h2 id="groups">Package Groups</h2><pre><code># List available groups
+dnf group list
+
+# Install a group
+sudo dnf group install -y "Server with GUI"
+
+# Remove a group
+sudo dnf group remove -y "Development Tools"
+
+# Common groups:
+# Server with GUI
+# Minimal Install
+# Base
+# Core
+# Development Tools
+# System Management Tools</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_software_with_the_dnf_tool/index" style="color:var(--accent)">RHEL 10 Package Management</a> &middot; <a href="https://dnf5.org/" style="color:var(--accent)">DNF5 Documentation</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#basics">DNF Basics</a></li><li><a href="#lock">Version Locking</a></li><li><a href="#repos">Repositories</a></li><li><a href="#modules">Module Streams</a></li><li><a href="#history">History &amp; Rollback</a></li><li><a href="#groups">Package Groups</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

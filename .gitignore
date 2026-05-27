@@ -1,0 +1,15 @@
+# Local temp files
+*.swp
+*.swo
+*~
+
+# Generated files
+gen.py
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

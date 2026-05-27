@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploy & Store Models — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Deploy & Store</div>
+            <h1>Deploy & Store Models</h1>
+            <p>Storage locations, deployment settings, serving configuration summary</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="deployment-options">Model Deployment Options</h2>
+<p>RHOAI supports two primary deployment modes:</p>
+
+<h3>Standard Mode</h3>
+<p>Simple deployment through the RHOAI dashboard UI:</p>
+<ul>
+    <li>Select a model from storage (PVC, S3, Registry)</li>
+    <li>Choose a serving runtime</li>
+    <li>Configure resources (CPU, memory, GPU)</li>
+    <li>Deploy with default settings</li>
+</ul>
+
+<h3>Advanced Mode</h3>
+<p>Granular control over deployment configuration:</p>
+<ul>
+    <li>Custom ServingRuntime definitions</li>
+    <li>Custom environment variables and secrets</li>
+    <li>Resource requests/limits overrides</li>
+    <li>Custom TLS/certificates</li>
+    <li>Advanced KServe configuration</li>
+    <li>Canary deployments and traffic splitting</li>
+</ul>
+
+<h2 id="storage-types">Model Storage Types</h2>
+
+<h3>Persistent Volume Claims (PVC)</h3>
+<p>Models stored in cluster storage, accessible at <code>/opt/app-root/src/</code> in the workbench:</p>
+<pre><code># Upload models to PVC in the IDE File Browser
+# Navigate to /opt/app-root/src/ and upload model files
+
+# Deploy from PVC via InferenceService
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+spec:
+  predictor:
+    model:
+      runtime: &lt;serving-runtime-name&gt;
+      storage:
+        key: &lt;pvc-connection-name&gt;
+        path: models/my-model/</code></pre>
+
+<h3>S3 Buckets</h3>
+<p>External object storage for models:</p>
+<pre><code>spec:
+  predictor:
+    storageUri: s3://&lt;bucket-name&gt;/models/my-model
+    # Or use a connection:
+    # Storage is automatically mounted as environment variables</code></pre>
+
+<h3>OCI Containers</h3>
+<p>Models packaged as OCI images (modelcars) for portability. Deployed using the Podman tool:</p>
+<pre><code># Build OCI model image
+podman build --format=oci -t quay.io/myorg/my-model:v1 .
+podman push quay.io/myorg/my-model:v1
+
+# Containerfile example
+FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+COPY --chown=0:0 models /models
+RUN chmod -R a=rX /models
+USER 65534
+
+# Deploy from OCI image via InferenceService
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+spec:
+  predictor:
+    model:
+      runtime: &lt;serving-runtime-name&gt;
+      storage:
+        key: &lt;oci-connection&gt;
+        path: models/my-model/</code></pre>
+
+<h2 id="supported-storage">Supported Model Storage Locations</h2>
+<table>
+    <thead><tr><th>Location</th><th>Protocol/URI</th><th>Notes</th></tr></thead>
+    <tbody>
+        <tr><td>PVC</td><td><code>pvc://namespace/pvc-name/path</code></td><td>In-cluster storage</td></tr>
+        <tr><td>S3</td><td><code>s3://bucket/path</code></td><td>S3-compatible object storage</td></tr>
+        <tr><td>OCI Image</td><td><code>quay.io/org/model:tag</code></td><td>Container-registered models</td></tr>
+        <tr><td>Model Registry</td><td>Registry UI selection</td><td>Versioned models</td></tr>
+        <tr><td>GCS</td><td><code>gs://bucket/path</code></td><td>Google Cloud Storage</td></tr>
+        <tr><td>HTTP/HTTPS</td><td><code>https://url/path</code></td><td>Direct URL download</td></tr>
+    </tbody>
+</table>
+
+<h2 id="deployment-settings">Configuring Deployment Settings</h2>
+<p><strong>Key configuration options:</strong></p>
+<ul>
+    <li><strong>Replicas</strong> — Number of serving pods (scale based on load)</li>
+    <li><strong>Resource requests</strong> — CPU and memory minimum</li>
+    <li><strong>Resource limits</strong> — CPU and memory maximum</li>
+    <li><strong>Accelerators</strong> — GPU allocation (nvidia.com/gpu count)</li>
+    <li><strong>Timeout</strong> — Model load timeout</li>
+    <li><strong>Canary weight</strong> — Traffic split for A/B testing</li>
+    <li><strong>Ingress</strong> — Route configuration (domain, TLS)</li>
+</ul>
+
+<h2 id="deployment-summary">Deployment Summary</h2>
+<p>The full deployment lifecycle:</p>
+<ol>
+    <li><strong>Train</strong> the model in a workbench</li>
+    <li><strong>Save</strong> the model to a storage location</li>
+    <li><strong>Register</strong> (optional) in the Model Registry</li>
+    <li><strong>Deploy</strong> as an InferenceService (Standard or Advanced)</li>
+    <li><strong>Monitor</strong> with TrustyAI (bias/drift) and KServe metrics</li>
+    <li><strong>Iterate</strong> — Retrain and redeploy based on monitoring insights</li>
+</ol>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#deployment-options">Model Deployment Options</a></li>
+                <li><a href="#storage-types">Model Storage Types</a></li>
+                <li><a href="#supported-storage">Supported Model Storage Locations</a></li>
+                <li><a href="#deployment-settings">Configuring Deployment Settings</a></li>
+                <li><a href="#deployment-summary">Deployment Summary</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/deploying_models/" style="color:var(--accent)">Deploying Models 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/configuring_your_model-serving_platform/" style="color:var(--accent)">Configuring Model Serving Platform 2.25</a></p></div>
+    </div>
+</body>
+</html>

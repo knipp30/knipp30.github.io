@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Serving — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Model Serving</div>
+            <h1>Model Serving</h1>
+            <p>Deploy models with KServe — Standard and Advanced modes, OpenVINO, vLLM</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="serving-workflow">Model Serving Workflow</h2>
+<p>RHOAI uses <strong>KServe</strong> (formerly KFServing) for model serving on the single-model serving platform. The workflow is:</p>
+<ol>
+    <li><strong>Store</strong> the model (S3 bucket, OCI container, or PVC)</li>
+    <li><strong>Deploy</strong> the model as an InferenceService</li>
+    <li><strong>Serve</strong> via the KServe endpoint (REST or gRPC)</li>
+    <li><strong>Monitor</strong> the deployed model</li>
+</ol>
+<p><strong>Two deployment modes:</strong></p>
+<ul>
+    <li><strong>Knative Serverless</strong> — Default, uses OpenShift Serverless; auto-scales to zero when idle</li>
+    <li><strong>KServe RawDeployment</strong> — Standard Deployment resources; no serverless dependencies; always-on</li>
+</ul>
+
+<h2 id="kserve-architecture">KServe Architecture</h2>
+<p>KServe uses a two-plane architecture:</p>
+<ul>
+    <li><strong>Control Plane</strong> — Configures and manages ModelServer pods (InferenceService CRD)</li>
+    <li><strong>Data Plane</strong> — ModelServer pods serve the model with Knative for auto-scaling (Serverless mode)</li>
+</ul>
+<p><strong>Required dependencies for Knative Serverless:</strong></p>
+<ul>
+    <li>Red Hat OpenShift Serverless Operator</li>
+    <li>Red Hat OpenShift Service Mesh</li>
+    <li>Authorino (optional, for token authentication with external routes)</li>
+</ul>
+<p><strong>Multi-model serving platform</strong> (ModelMesh) is also available for deploying many small models on a single runtime server.</p>
+
+<h2 id="standard-deploy">Standard Deployment</h2>
+<p><strong>Through the UI:</strong></p>
+<ul>
+    <li>Open Data Science Project → Models tab → Deploy Model</li>
+    <li>Select storage type: PVC, S3, or Model Registry</li>
+    <li>Specify model path (e.g., <code>/data/model/</code> or s3://bucket/path)</li>
+    <li>Select a ServingRuntime (runtime type)</li>
+    <li>Configure resources (CPU, memory, accelerators)</li>
+    <li>Set deployment mode (Serverless or RawDeployment)</li>
+</ul>
+
+<h3>Standard deployment via CLI:</h3>
+<pre><code># Create an InferenceService from PVC
+oc apply -f - &lt;&lt;EOF
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: fraud-detection
+  namespace: &lt;project&gt;
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: onnx
+        version: "1.0.0"
+      runtime: vllm-runtime
+      storage:
+        key: my-s3-connection
+        path: models/fraud-detection/
+EOF</code></pre>
+
+<h2 id="advanced-deploy">Advanced Deployment</h2>
+<p>Advanced deployment allows more granular control:</p>
+<ul>
+    <li>Custom ServingRuntime configuration</li>
+    <li>Multiple model formats (ONNX, PyTorch, TensorFlow, etc.)</li>
+    <li>Custom environment variables</li>
+    <li>Resource overrides</li>
+    <li>Custom CA bundles for TLS</li>
+</ul>
+
+<h2 id="storage-locations">Model Storage Locations</h2>
+<table>
+    <thead><tr><th>Storage Type</th><th>Use Case</th><th>Example</th></tr></thead>
+    <tbody>
+        <tr><td>PVC</td><td>Models stored in cluster storage</td><td>pvc://project/pvc-name/path</td></tr>
+        <tr><td>S3 Bucket</td><td>External object storage</td><td>s3://bucket/path</td></tr>
+        <tr><td>OCI Container</td><td>Models packaged as OCI artifacts</td><td>quay.io/org/model:tag</td></tr>
+        <tr><td>Model Registry</td><td>Versioned models from registry</td><td>registry://model-name:version</td></tr>
+    </tbody>
+</table>
+
+<h2 id="openvino">OpenVINO Runtime</h2>
+<p>For CPU-optimized inference with Intel hardware:</p>
+<pre><code># OpenVINO ServingRuntime
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: openvino-pipeline
+spec:
+  supportedModelFormats:
+    - name: openvino
+      version: "2022.2"
+  containers:
+    - name: openvino-pipeline
+      image: quay.io/modh/openvino:latest</code></pre>
+
+<h2 id="vllm">vLLM Runtime for LLMs</h2>
+<p>vLLM is optimized for serving large language models with PagedAttention:</p>
+<pre><code>vLLM ServingRuntime for LLM deployment
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: llm-vllm
+spec:
+  containers:
+    - name: vllm
+      image: quay.io/modh/vllm@sha256:...
+  supportedModelFormats:
+    - name: huggingface</code></pre>
+<p>Configure model-specific parameters like <code>max_model_len</code>, <code>gpu_memory_utilization</code>, <code>max_num_seqs</code>.</p>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#serving-workflow">Model Serving Workflow</a></li>
+                <li><a href="#kserve-architecture">KServe Architecture</a></li>
+                <li><a href="#standard-deploy">Standard Deployment</a></li>
+                <li><a href="#advanced-deploy">Advanced Deployment</a></li>
+                <li><a href="#storage-locations">Model Storage Locations</a></li>
+                <li><a href="#openvino">OpenVINO Runtime</a></li>
+                <li><a href="#vllm">vLLM Runtime for LLMs</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/configuring_your_model-serving_platform/" style="color:var(--accent)">Configuring Model Serving Platform 2.25</a> &middot; <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/deploying_models/" style="color:var(--accent)">Deploying Models 2.25</a></p></div>
+    </div>
+</body>
+</html>

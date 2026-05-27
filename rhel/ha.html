@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Availability — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / HA</div>
+        <h1>High Availability</h1>
+        <p>Pacemaker, Corosync, PCS cluster management, resource agents, and STONITH fencing.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="overview">Overview</h2><p>Pacemaker + Corosync provides high-availability clustering on RHEL 10. PCS (Pacemaker/Corosync Configuration System) is the management tool.</p><pre><code># Install HA packages on all nodes
+sudo dnf install -y pacemaker corosync pcs fence-agents-all
+
+# Set password for hacluster user (same on all nodes)
+sudo passwd hacluster
+
+# Enable and start pcsd
+sudo systemctl enable --now pcsd
+
+# Firewall (on all nodes)
+sudo firewall-cmd --permanent --add-service=high-availability
+sudo firewall-cmd --reload</code></pre><h2 id="cluster">Cluster Setup</h2><pre><code># Authorize nodes (run on any node)
+sudo pcs cluster auth node1 node2 node3
+
+# Create cluster
+sudo pcs cluster setup mycluster node1 node2 node3
+
+# Start on all nodes
+sudo pcs cluster start --all
+
+# Enable on boot
+sudo pcs cluster enable --all
+
+# Verify status
+sudo pcs status
+sudo pcs cluster status
+
+# View corosync membership
+sudo corosync-cmapctl | grep member</code></pre><h2 id="resources">Resource Agents</h2><pre><code># Create a virtual IP resource
+sudo pcs resource create vip ocf:heartbeat:IPaddr2 ip=10.0.0.100 cidr_netmask=24 op monitor interval=30s
+
+# Create an Apache resource
+sudo pcs resource create httpd systemd:httpd op monitor interval=30s
+
+# Create a resource group (ensures co-location and ordered start)
+sudo pcs group add webgroup vip httpd
+
+# List resources
+sudo pcs resource
+
+# Disable a resource (without deleting)
+sudo pcs resource disable httpd
+
+# Delete a resource
+sudo pcs resource delete httpd</code></pre><h2 id="fencing">STONITH (Fencing)</h2><pre><code># List available fence agents
+ls /usr/libexec/pcs/fence_agent/
+# Or: pcs stonith devices list  (list configured devices)
+
+# Configure STONITH (example: IPMI)
+sudo pcs stonith create fence-ipmi fence_ipmilan \
+  pcmk_host_list=node1 node2 node3 \
+  ipaddr=ipmi-mgmt.example.com \
+  login=admin passwd=secret
+
+# Disable STONITH enforcement (testing only, NOT for production)
+sudo pcs property set stonith-enabled=false
+
+# Re-enable for production
+sudo pcs property set stonith-enabled=true
+
+# View fencing devices
+sudo pcs stonith show</code></pre><h2 id="constraints">Constraints</h2><pre><code># Colocation (run together on same node)
+sudo pcs constraint colocation add httpd vip INFINITY
+
+# Ordering (start vip before httpd)
+sudo pcs constraint order vip then httpd
+
+# Location (prefer a specific node)
+sudo pcs constraint location vip score=100 node1
+
+# List all constraints
+sudo pcs constraint
+
+# Remove a constraint
+sudo pcs constraint delete location-vip-node1</code></pre><h2 id="corosync">Corosync Configuration</h2><pre><code># View corosync config
+sudo cat /etc/corosync/corosync.conf
+
+# Quorum configuration
+sudo pcs quorum status
+
+# Enable two-node (no-quorum policy)
+sudo pcs quorum update auto_tie_breaker=1
+
+# Synchronize config to all nodes
+sudo pcs cluster sync</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/configuring_and_managing_high_availability_clusters/index" style="color:var(--accent)">RHEL 10 HA Guide</a> &middot; <a href="https://clusterlabs.org/" style="color:var(--accent)">ClusterLabs</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#overview">Overview</a></li><li><a href="#cluster">Cluster Setup</a></li><li><a href="#resources">Resource Agents</a></li><li><a href="#fencing">STONITH</a></li><li><a href="#constraints">Constraints</a></li><li><a href="#corosync">Corosync</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

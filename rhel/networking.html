@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Networking</div>
+        <h1>Networking</h1>
+        <p>NetworkManager, firewalld, bonding, bridging, DNS, and network troubleshooting on RHEL 10.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="nm">NetworkManager</h2><p>RHEL 10 uses NetworkManager for all network configuration. nmcli is the CLI tool; nmtui provides a text-based interface.</p><pre><code># Show all connections
+nmcli connection show
+
+# Show device status
+nmcli device status
+
+# Create a static IP connection
+sudo nmcli connection add type ethernet con-name eth0 ifname eth0 \
+  ipv4.addresses 192.168.1.10/24 ipv4.gateway 192.168.1.1 \
+  ipv4.dns '8.8.8.8 8.8.4.4' ipv4.method manual
+
+# Modify an existing connection
+sudo nmcli connection modify eth0 ipv4.addresses 10.0.0.5/24
+
+# Bring up/down
+sudo nmcli connection up eth0
+sudo nmcli connection down eth0</code></pre><h2 id="firewalld">Firewalld</h2><pre><code># Check status
+sudo firewall-cmd --state
+
+# List open ports in public zone
+sudo firewall-cmd --zone=public --list-all
+
+# Open a port (runtime)
+sudo firewall-cmd --add-port=8080/tcp
+
+# Open a port (permanent)
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+
+# Forward port
+sudo firewall-cmd --permanent --add-forward-port=port=80:proto=tcp:toport=8080
+sudo firewall-cmd --reload
+
+# Rich rule (allow from specific IP)
+sudo firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=10.0.0.0/8 port port=22 protocol=tcp accept'
+sudo firewall-cmd --reload</code></pre><h2 id="bonding">Bonding</h2><pre><code># Create a bond (active-backup mode)
+sudo nmcli connection add type bond con-name bond0 ifname bond0 \
+  bond.options 'mode=active-backup,miimon=100' \ 
+  ipv4.method manual ipv4.addresses 10.0.0.1/24
+
+# Add slave interfaces
+sudo nmcli connection add type bond-slave ifname eth0 master bond0
+sudo nmcli connection add type bond-slave ifname eth1 master bond0
+
+# Check bond status
+cat /proc/net/bonding/bond0</code></pre><h2 id="bridging">Bridging</h2><pre><code># Create a bridge
+sudo nmcli connection add type bridge con-name br0 ifname br0 \
+  ipv4.method manual ipv4.addresses 10.0.0.1/24
+
+# Add physical interface to bridge
+sudo nmcli connection add type bridge-slave ifname eth0 master br0
+
+# Verify
+nmcli device show br0</code></pre><h2 id="dns">DNS Configuration</h2><pre><code># Set DNS via NetworkManager (per-connection)
+sudo nmcli connection modify eth0 ipv4.dns '8.8.8.8 1.1.1.1'
+
+# Global DNS override (resolv.conf management)
+sudo nmcli dev show | grep DNS
+
+# Install and configure BIND (DNS server)
+sudo dnf install -y bind bind-utils
+sudo systemctl enable --now named
+
+# Quick DNS query
+dig @8.8.8.8 example.com
+nslookup example.com</code></pre><h2 id="troubleshoot">Troubleshooting</h2><pre><code># Check routing table
+ip route show
+
+# Check ARP table
+ip neigh show
+
+# Trace route
+tracepath example.com
+
+# Packet capture
+sudo tcpdump -i eth0 port 80
+
+# Network statistics
+ss -tulnp
+ethtool eth0</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/configuring_and_managing_networking/" style="color:var(--accent)">RHEL 10 Networking Guide</a> &middot; <a href="https://firewalld.org/" style="color:var(--accent)">Firewalld</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#nm">NetworkManager</a></li><li><a href="#firewalld">Firewalld</a></li><li><a href="#bonding">Bonding</a></li><li><a href="#bridging">Bridging</a></li><li><a href="#dns">DNS Configuration</a></li><li><a href="#troubleshoot">Troubleshooting</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

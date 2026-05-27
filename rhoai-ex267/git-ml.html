@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git & ML Development — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Git & ML</div>
+            <h1>Git & ML Development</h1>
+            <p>Version control notebooks, Python ML libraries, data loading, model export</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="git-version-control">Git Version Control in Jupyter</h2>
+<p>RHOAI workbenches support Git version control for notebooks:</p>
+<ul>
+    <li>Git extension is pre-installed in JupyterLab workbenches</li>
+    <li>Commit, push, pull, branch operations from the Git sidebar</li>
+    <li>Configure Git credentials in the workbench settings</li>
+</ul>
+<p><strong>Setting up Git:</strong></p>
+<pre><code># In the workbench terminal
+git config --global user.email "user@example.com"
+git config --global user.name "User Name"
+
+# Add a remote
+git remote add origin https://github.com/org/repo.git
+
+# Configure credentials (use a personal access token)
+git remote set-url origin https://user:TOKEN@github.com/org/repo.git</code></pre>
+
+<h2 id="git-workflow">Git Workflow in Notebooks</h2>
+<ul>
+    <li><strong>Create notebook</strong> — New file in JupyterLab</li>
+    <li><strong>Stage changes</strong> — Git sidebar → Stage file</li>
+    <li><strong>Commit</strong> — Write message → Commit</li>
+    <li><strong>Push</strong> — Push to remote repository</li>
+    <li><strong>Branching</strong> — Create branches for experiments</li>
+</ul>
+
+<h2 id="python-ml">Python ML Development</h2>
+<p>Train models using foundational ML libraries in Jupyter notebooks:</p>
+<pre><code># Scikit-learn example
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+model = RandomForestClassifier(n_estimators=100)
+model.fit(X_train, y_train)
+print(classification_report(y_test, model.predict(X_test)))</code></pre>
+<p><strong>Key libraries:</strong></p>
+<ul>
+    <li><strong>scikit-learn</strong> — Traditional ML (classification, regression, clustering)</li>
+    <li><strong>TensorFlow / PyTorch</strong> — Deep learning</li>
+    <li><strong>transformers (Hugging Face)</strong> — Pre-trained LLMs</li>
+    <li><strong>pandas / numpy</strong> — Data manipulation</li>
+    <li><strong>matplotlib / seaborn</strong> — Visualization</li>
+</ul>
+
+<h2 id="data-scoring">Loading Data Scalably</h2>
+<p><strong>Large datasets:</strong></p>
+<pre><code># Dask for out-of-core computation
+import dask.dataframe as dd
+df = dd.read_csv('s3://bucket/large-dataset/*.csv')
+model = dask_ml.wrappers.SGDClassifier().fit(df[X_cols], df[y_col])
+
+# Vaex for memory-efficient DataFrames (available in custom images)
+import vaex
+df = vaex.open('dataset.hdf5')  # Lazy loading</code></pre>
+<p><strong>Note:</strong> Dask and Vaex may require custom workbench images — they are not included in the default minimal workbench images.</p>
+
+<h2 id="save-export">Saving and Exporting Models</h2>
+<pre><code># Scikit-learn
+import joblib
+joblib.dump(model, 'model.joblib')
+model = joblib.load('model.joblib')
+
+# TensorFlow
+model.save('my_model/')  # SavedFormat
+
+# PyTorch
+torch.save(model.state_dict(), 'model.pt')
+model.load_state_dict(torch.load('model.pt'))
+
+# ONNX (for deployment)
+import onnxruntime
+torch.onnx.export(model, x, 'model.onnx')
+
+# MLflow
+import mlflow
+mlflow.sklearn.log_model(model, 'model')</code></pre>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#git-version-control">Git Version Control in Jupyter</a></li>
+                <li><a href="#git-workflow">Git Workflow in Notebooks</a></li>
+                <li><a href="#python-ml">Python ML Development</a></li>
+                <li><a href="#data-scoring">Loading Data Scalably</a></li>
+                <li><a href="#save-export">Saving and Exporting Models</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_in_your_data_science_ide/" style="color:var(--accent)">Working in Your Data Science IDE 2.25</a></p></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kernel Tuning — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Kernel</div>
+        <h1>Kernel Tuning</h1>
+        <p>sysctl parameters, systemd-udev rules, EEVDF scheduler, and kernel module management.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="sysctl">sysctl — Runtime Parameters</h2><pre><code># List all parameters
+sysctl -a
+
+# View specific parameter
+sysctl net.ipv4.ip_forward
+
+# Temporary change (reverts on reboot)
+sudo sysctl net.ipv4.ip_forward=1
+
+# Persistent change
+sudo tee /etc/sysctl.d/99-custom.conf &lt;&lt;'EOF'
+# Networking
+net.core.somaxconn = 65535
+net.ipv4.tcp_max_syn_backlog = 65535
+net.ipv4.ip_forward = 0
+fs.file-max = 2097152
+fs.inotify.max_user_instances = 8192
+
+# Memory
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+EOF
+
+# Apply
+sudo sysctl -p /etc/sysctl.d/99-custom.conf</code></pre><h2 id="eevdf">EEVDF Scheduler (RHEL 10)</h2><p>RHEL 10 replaces the CFS (Completely Fair Scheduler) with EEVDF (Earliest Eligible Virtual Deadline First). EEVDF provides better latency and throughput characteristics for modern workloads.</p><pre><code># Check current scheduler
+cat /sys/block/sda/queue/scheduler
+
+# View per-task scheduler info
+taskset -c -p $$
+
+# Tune EEVDF behavior (kernel 6.11+)
+sudo sysctl kernel.sched_tunable_scaling=1
+
+# Set process scheduling priority
+schedtool -e other -p 10 -P 0 -p $$
+
+# Set CPU affinity
+taskset -c 0,1 -p $$</code></pre><h2 id="udev">systemd-udev Rules</h2><pre><code># Create a custom udev rule
+sudo tee /etc/udev/rules.d/99-custom.rules &lt;&lt;'EOF'
+# Set static device permissions
+SUBSYSTEM=="block", KERNEL=="sdb", MODE="0660", GROUP="disk"
+
+# Trigger custom script on device insertion
+ACTION=="add", SUBSYSTEM=="usb", RUN+="/usr/local/bin/usb-handler.sh"
+EOF
+
+# Reload rules
+sudo udevadm control --reload
+
+# Trigger rules for existing devices
+sudo udevadm trigger
+
+# Monitor udev events
+sudo udevadm monitor</code></pre><h2 id="modules">Kernel Modules</h2><pre><code># List loaded modules
+lsmod
+
+# Load a module
+sudo modprobe nvidia
+
+# Unload a module
+sudo modprobe -r nvidia
+
+# Blacklist a module (prevent auto-load)
+echo 'blacklist nvidia' | sudo tee /etc/modprobe.d/blacklist-nvidia.conf
+
+# Persistent module load at boot
+echo 'nf_conntrack' | sudo tee /etc/modules-load.d/nf_conntrack.conf
+
+# Module parameters
+echo 'nvidia NVreg_RestrictProfilingToAdminUsers=1' | sudo tee /etc/modprobe.d/nvidia.conf</code></pre><h2 id="tuning">Performance Tuning</h2><pre><code># Reduce latency for high-performance apps
+sudo tee /etc/sysctl.d/99-latency.conf &lt;&lt;'EOF'
+# Disable TCP timestamps (reduces jitter)
+net.ipv4.tcp_timestamps = 0
+
+# Increase TCP buffer sizes
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+
+# Enable TCP BBR congestion control
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+EOF
+
+sudo sysctl -p /etc/sysctl.d/99-latency.conf
+
+# Verify BBR is active
+lsmod | grep bbr
+cat /proc/sys/net/ipv4/tcp_congestion_control</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/managing_overview_and_installing_systems/kernel_tuning" style="color:var(--accent)">RHEL 10 Kernel Tuning</a> &middot; <a href="https://lwn.net/Articles/939338/" style="color:var(--accent)">EEVDF Scheduler</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#sysctl">sysctl</a></li><li><a href="#eevdf">EEVDF Scheduler</a></li><li><a href="#udev">udev Rules</a></li><li><a href="#modules">Kernel Modules</a></li><li><a href="#tuning">Performance Tuning</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>

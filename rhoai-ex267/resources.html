@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Allocation — RHOAI EX267 Exam Prep</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">🔬</span> RHOAI EX267 Exam Prep — Red Hat Learning Hub</a></div>
+    </nav>
+
+    <div class="topic-hero">
+        <div class="container">
+            <div class="breadcrumb"><a href="../index.html">Home</a> / Resource Allocation</div>
+            <h1>Resource Allocation</h1>
+            <p>Use nodeSelectors, tolerations, and accelerators to allocate resources</p>
+        </div>
+    </div>
+
+    <div class="topic-layout">
+        <div class="topic-content">
+
+<h2 id="node-selectors">Node Selectors</h2>
+<p>Node selectors restrict workbenches and model servers to specific nodes based on labels set by the Node Feature Discovery (NFD) operator.</p>
+<pre><code># Example: Schedule workbench only on GPU nodes
+apiVersion: workbenches.opendatahub.io/v1
+kind: Notebook
+metadata:
+  name: my-notebook
+  namespace: &lt;project&gt;
+spec:
+  template:
+    spec:
+      nodeSelector:
+        nvidia.com/gpu: "true"</code></pre>
+
+<h2 id="tolerations">Tolerations</h2>
+<p>Tolerations allow workbenches to be scheduled on nodes with taints (e.g., GPU taints).</p>
+<pre><code># Add toleration to GPU nodes
+tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Exists"
+    effect: "NoSchedule"</code></pre>
+
+<h2 id="accelerators">Accelerators</h2>
+<p>Accelerators (NVIDIA GPUs, AMD GPUs, Intel Gaudi) are configured at the cluster level by the admin, then selectable at the project level.</p>
+<p><strong>Admin setup:</strong></p>
+<ul>
+    <li>Install the relevant accelerator operator (e.g., NVIDIA GPU Operator)</li>
+    <li>Install Node Feature Discovery (NFD) operator</li>
+    <li>Navigate to Settings → Hardware profiles (or Accelerator profiles)</li>
+    <li>Create a hardware/accelerator profile: name, resource (e.g., nvidia.com/gpu), labels</li>
+    <li>Set display name, description</li>
+</ul>
+
+<p><strong>Supported accelerators:</strong></p>
+<ul>
+    <li>NVIDIA GPUs (via NVIDIA GPU Operator)</li>
+    <li>AMD GPUs (via AMD GPU Operator)</li>
+    <li>Intel Gaudi AI accelerators (via Intel Gaudi Base Operator)</li>
+    <li>IBM Spyre accelerators (via IBM Spyre Operator)</li>
+</ul>
+
+<p><strong>Data scientist usage:</strong></p>
+<ul>
+    <li>When creating a workbench or model server, select the accelerator and quantity</li>
+    <li>Accelerators appear as resources in the pod spec</li>
+    <li>Example: <code>nvidia.com/gpu: 1</code> allocates one GPU to the pod</li>
+</ul>
+
+<h2 id="allocating-model-servers">Allocating Model Servers to Nodes</h2>
+<p>For model servers (InferenceServices), configure node selectors and tolerations in the deployment template:</p>
+<pre><code>apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceService
+metadata:
+  name: my-model
+spec:
+  predictor:
+    nodeSelector:
+      nvidia.com/gpu: "true"
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    runtime:
+      ...</code></pre>
+
+<h2 id="pvc-storage">Persistent Volume Claims</h2>
+<p>Each Data Science Project gets a default PVC for storage. Admins can configure:</p>
+<ul>
+    <li>Default PVC size (100Gi by default)</li>
+    <li>Storage class</li>
+    <li>Additional PVCs can be added to projects</li>
+</ul>
+<p>Storage is accessible in workbenches at: <code>/opt/app-root/src/</code></p>
+
+        </div>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul>
+                <li><a href="#node-selectors">Node Selectors</a></li>
+                <li><a href="#tolerations">Tolerations</a></li>
+                <li><a href="#accelerators">Accelerators</a></li>
+                <li><a href="#allocating-model-servers">Allocating Model Servers to Nodes</a></li>
+                <li><a href="#pvc-storage">Persistent Volume Claims</a></li>
+            </ul>
+        </aside>
+    </div>
+
+<footer><p>RHOAI EX267 Exam Preparation Guide &middot; Red Hat Certified Specialist in OpenShift AI &middot; 2026</p>
+        <div class="callout"><div class="callout-title">&#128218; Source</div><p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_accelerators/" style="color:var(--accent)">Working with Accelerators 2.25</a></p></div>
+    </div>
+</body>
+</html>

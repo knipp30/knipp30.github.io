@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User &amp; Group Management — Red Hat Learning Hub</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">&#9881;</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / Users</div>
+        <h1>User &amp; Group Management</h1>
+        <p>Local users, LDAP/SSSD integration, sudo configuration, and PAM modules.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+        <h2 id="local">Local Users &amp; Groups</h2><pre><code># Create a user with home directory
+sudo useradd -m -s /bin/bash username
+
+# Set password
+sudo passwd username
+
+# Add user to supplementary groups
+sudo usermod -aG wheel,docker username
+
+# Create a group
+sudo groupadd developers
+
+# List user groups
+id username
+
+# Lock/unlock a user
+sudo passwd -l username
+sudo passwd -u username
+
+# Delete a user and home directory
+sudo userdel -r username</code></pre><h2 id="sudo">Sudo Configuration</h2><pre><code># Edit sudoers safely
+sudo visudo
+
+# Grant passwordless sudo for a group
+# %wheel ALL=(ALL) NOPASSWD: ALL
+
+# Grant specific commands only
+sudo tee /etc/sudoers.d/webadmin &lt;&lt;'EOF'
+webadmin ALL=(ALL) NOPASSWD: /bin/systemctl restart httpd, /bin/systemctl reload httpd
+EOF
+
+# Test sudo permissions
+sudo -l -U username</code></pre><h2 id="sssd">SSSD &amp; LDAP Integration</h2><p>SSSD (System Security Services Daemon) provides centralized authentication against LDAP, Active Directory, or FreeIPA.</p><pre><code># Install SSSD
+sudo dnf install -y sssd realmd oddjob oddjob-mkhomedir adcli samba-common-tools
+
+# Join Active Directory domain
+sudo realm join ad.example.com
+
+# Verify
+realm list
+
+# Configure automatic home directory creation
+sudo authselect select sssd with-mkhomedir
+
+# Query directory users
+getent passwd ad_user
+id ad_user
+
+# Start SSSD
+sudo systemctl enable --now sssd</code></pre><h2 id="pam">PAM Modules</h2><pre><code># List available PAM profiles
+sudo authselect list
+
+# Current profile
+sudo authselect current
+
+# Enable Fingerprint auth
+sudo authselect select sssd with-fingerprint with-mkhomedir
+
+# Account lockout after failed attempts
+# Config in /etc/security/faillock.conf:
+# deny = 5
+# unlock_time = 900
+# even_deny_root = false</code></pre><h2 id="limits">Resource Limits</h2><pre><code># Set limits per user or group in /etc/security/limits.conf:
+# username soft nofile 65536
+# username hard nofile 65536
+# username soft nproc 4096
+# username hard nproc 4096
+
+# Or use drop-in files
+sudo tee /etc/security/limits.d/99-webapp.conf &lt;&lt;'EOF'
+webapp soft nofile 65536
+webapp hard nofile 65536
+webapp soft memlock unlimited
+EOF</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/configuring_authentication_and_authorization/" style="color:var(--accent)">RHEL 10 Auth Guide</a> &middot; <a href="https://sssd.io/" style="color:var(--accent)">SSSD Documentation</a></p></div>
+    </div>
+    <aside class="toc"><h4>On this page</h4><ul>
+        <li><a href="#local">Local Users</a></li><li><a href="#sudo">Sudo Configuration</a></li><li><a href="#sssd">SSSD &amp; LDAP</a></li><li><a href="#pam">PAM Modules</a></li><li><a href="#limits">Resource Limits</a></li>
+    </ul></aside></div>
+    <footer><p>Red Hat Learning Hub &middot; RHEL 10 &middot; 2026</p></footer>
+</body></html>
