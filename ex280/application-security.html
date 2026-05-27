@@ -178,19 +178,8 @@ oc adm policy add-scc-to-group privileged system:authenticated:oauth
 # Remove SCC from a user
 oc adm policy remove-scc-from-user privileged -z my-app-sa -n my-project
 
-# SCC binding
-cat &gt; scc-binding.yaml &lt;&lt;'EOF'
-apiVersion: authorization.openshift.io/v1
-kind: SubjectAccessReview
-metadata:
-  name: scc-binding
-spec:
-  resources:
-  - verbs: ["use"]
-    resource: securitycontextconstraints
-    name: privileged
-  user: system:serviceaccount:my-project:my-app-sa
-EOF</code></pre>
+# Verify SCC binding for a service account
+oc adm policy who-can use scc privileged -n my-project
 
         <h2 id="secrets-advanced">Managing and Applying Secrets</h2>
         <pre><code># Create a secret
@@ -466,8 +455,8 @@ spec:
       mountPath: /tmp
     - name: cache
       mountPath: /var/cache/nginx
-      - name: run
-        mountPath: /var/run/nginx
+    - name: run
+      mountPath: /var/run/nginx
   volumes:
   - name: tmp
     emptyDir: {}

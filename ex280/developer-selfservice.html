@@ -18,8 +18,8 @@
         <h2 id="overview">Overview</h2>
         <p>Resource quotas and limits allow cluster administrators to control resource consumption per project while enabling developers to self-service their workloads.</p>
 
-        <h2 id="cluster-quotas">Configuring Cluster Resource Quotas</h2>
-        <pre><code># ResourceQuota in a project
+        <h2 id="cluster-quotas">Configuring Resource Quotas</h2>
+        <pre><code># ResourceQuota is namespace-scoped (not cluster-wide)
 cat &gt; resourcequota.yaml &lt;&lt;'EOF'
 apiVersion: v1
 kind: ResourceQuota

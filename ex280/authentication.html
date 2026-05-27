@@ -90,9 +90,9 @@ htpasswd -bB /tmp/htpasswd user1 newpassword
 oc delete secret htpass-secret -n openshift-config
 oc create secret generic htpass-secret --from-file=htpasswd=/tmp/htpasswd -n openshift-config
 
-# Password must persist after reboot - keep the file on the master node
-# Store the htpasswd file in a persistent location
-cp /tmp/htpasswd /etc/origin/master/htpasswd
+# Password must persist after reboot - keep the htpasswd file in a persistent location
+# Store it on the master node or in a persistent volume
+# In OCP 4.x, the secret is stored in the openshift-config namespace
 
 # Verify
 oc login -u user1 -p newpassword https://&lt;cluster-api&gt;:6443</code></pre>

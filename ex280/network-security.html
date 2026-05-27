@@ -26,8 +26,7 @@ oc get network.operator cluster -o yaml
 oc get network.operator cluster -o jsonpath='{.status}'
 
 # Network types
-#   OpenShiftSDN: Default SDN (3.14.x)
-#   OVN-Kubernetes: Recommended SDN (3.16+)
+#   OVN-Kubernetes: Recommended and default SDN for OCP 4.x
 
 # Check SDN version
 oc get clusterversion
@@ -52,6 +51,11 @@ EOF
 oc apply -f network-config.yaml</code></pre>
 
         <h2 id="sdn-troubleshooting">Troubleshooting Software Defined Networking</h2>
+
+        <div class="callout">
+            <div class="callout-title">⚠️ Important</div>
+            <p>OpenShift 4.x uses <strong>OpenShiftSDN</strong> (default in OCP 4.0-4.12) or <strong>OVN-Kubernetes</strong> (default since OCP 4.13). SCTP protocol is <strong>NOT supported</strong> by either default SDN.</p>
+        </div>
         <pre><code># Check SDN pods
 oc get pods -n openshift-sdn
 oc get pods -n openshift-ovn-kubernetes
@@ -189,24 +193,20 @@ oc apply -f route-tls.yaml
 #   passthrough: Router passes encrypted traffic through (backend terminates)
 #   none: No TLS
 
-# Configure TLS on Ingress Controller
-cat &gt; ingress-tls.yaml &lt;&lt;'EOF'
-apiVersion: operator.openshift.io/v1
-kind: IngressController
-metadata:
-  name: custom-ingress
-  namespace: openshift-ingress-operator
-spec:
-  domain: apps.example.com
-  tlsConfiguration:
-    minTLSVersion: VersionTLS12
-    cipherSuites:
-    - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-EOF
+# Configure TLS on Ingress Controller (cluster-wide)
+# The default IngressController is named 'cluster' in 'openshift-ingress-operator'
+# Edit the default IngressController to apply TLS settings:
+oc edit ingresscontrollers.config.operator.openshift.io/cluster -n openshift-ingress-operator
 
-# View cluster-wide TLS settings
-oc get ingress.config/cluster -o yaml -n openshift-ingress</code></pre>
+# Or patch with CLI:
+oc patch ingresscontrollers.config.operator.openshift.io/cluster -n openshift-ingress-operator -p '{"spec":{"tlsConfiguration":{"minTLSVersion":"VersionTLS12","cipherSuites":["TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256","TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]}}}' --type=merge
+
+# View cluster-wide ingress settings
+oc get ingress.config/cluster -o yaml -n openshift-ingress-operator
+
+# View ingress controller pods
+oc get pods -n openshift-ingress-operator
+oc get pods -n openshift-ingress</code></pre>
 
         <h2 id="network-policies">Configuring Application Network Policies</h2>
         <pre><code># Default: All pods can communicate with all pods (unless policies are applied)

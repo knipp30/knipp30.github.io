@@ -81,7 +81,7 @@ oc get imagestreams -n &lt;project&gt;
 oc get is &lt;image-stream-name&gt; -n &lt;project&gt;
 
 # View image details with digests
-oc describe imagestream &lt;image-stream-name&gt; -n &&lt;project&gt;
+oc describe imagestream &lt;image-stream-name&gt; -n &lt;project&gt;
 
 # Identify images by tags and digests
 oc get is &lt;image-stream-name&gt; -o jsonpath='{.status.tags[].items[*].dockerImageReference}' -n &lt;project&gt;
@@ -223,25 +223,30 @@ oc logs -n openshift-etcd etcd-&lt;node&gt;</code></pre>
 
         <h2 id="health-assessment">Health Assessment</h2>
         <pre><code># Comprehensive health check
-oc adm diagnostics
+# Health check for cluster operators
+oc get co
 
-# Check operator health
+# Check operator health with JSON query
 oc get co -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[-1:].type}{"\t"}{.status.conditions[-1:].status}{"\n"}{end}'
 
 # Check etcd cluster health (cluster admin)
-oc adm diagnostic etcd-check-cluster-connected
+oc get endpoints -n openshift-etcd etcd
+oc get pods -n openshift-etcd -l component=etcd
 
 # Check API server health
-oc adm diagnostic api-server-check-etcd-connected
+oc get pods -n openshift-apiserver
+oc get clusterversion
 
-# Node diagnostics
-oc adm diagnostics node-config-reflector
+# Node health
+oc get nodes -o wide
+oc adm top nodes
 
-# Storage diagnostics
-oc adm diagnostics storage
+# Storage health
+oc get pvc --all-namespaces
+oc get sc
 
-# Network diagnostics
-oc adm diagnostics network
+# Network health
+oc get pods -n openshift-network-operator
 
 # Check pod status comprehensively
 oc get pods --all-namespaces | grep -v Running

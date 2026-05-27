@@ -206,25 +206,29 @@ EOF
 oc get svc tcp-service udp-service mixed-service -n my-project
 oc get endpoints tcp-service -n my-project</code></pre>
 
-        <h2 id="streaming">Stream Protocols (STONET, SCTP)</h2>
-        <pre><code># SCTP Service
-cat &gt; sctp-svc.yaml &lt;&lt;'EOF'
+        <h2 id="streaming">Stream Protocols (SCTP)</h2>
+        <pre><code># Note: SCTP protocol is NOT supported by OpenShift's default SDNs (OpenShiftSDN or OVN-Kubernetes)
+# For SCTP workloads, you need to configure a custom network plugin or use a different approach
+# OpenShift 4.x SDNs only support TCP and UDP protocols for Services
+
+# As an alternative, use TCP with similar semantics:
+cat &gt; tcp-alternative-svc.yaml &lt;&lt;'EOF'
 apiVersion: v1
 kind: Service
 metadata:
-  name: sctp-service
+  name: tcp-alternative-svc
 spec:
   type: ClusterIP
   selector:
-    app: my-sctp-app
+    app: my-app
   ports:
-  - name: sctp
+  - name: tcp-alternative
     port: 9090
     targetPort: 9090
-    protocol: SCTP
+    protocol: TCP
 EOF
 
-oc apply -f sctp-svc.yaml</code></pre>
+oc apply -f tcp-alternative-svc.yaml</code></pre>
 
         <h2 id="non-http-tls">Non-HTTP/SNI with TLS</h2>
         <pre><code># For TLS-terminated TCP services, use NodePort or LoadBalancer

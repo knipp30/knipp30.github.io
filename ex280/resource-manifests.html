@@ -114,7 +114,7 @@ oc rollout restart deployment/&lt;deploy-name&gt;</code></pre>
         <h2 id="kustomize">Kustomize</h2>
         <pre><code># Create a kustomization.yaml
 cat &gt; kustomization.yaml &lt;&lt;'EOF'
-apiVersion: kustomize.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
@@ -146,7 +146,7 @@ oc apply -k overlays/dev</code></pre>
         <h2 id="overlays">Kustomize Overlays</h2>
         <pre><code># Base kustomization.yaml
 cat &gt; base/kustomization.yaml &lt;&lt;'EOF'
-apiVersion: kustomize.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - deployment.yaml
@@ -172,7 +172,7 @@ EOF
 
 # Dev overlay
 cat &gt; overlays/dev/kustomization.yaml &lt;&lt;'EOF'
-apiVersion: kustomize.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
   - ../../base
@@ -203,7 +203,7 @@ EOF
 
 # Staging overlay
 cat &gt; overlays/staging/kustomization.yaml &lt;&lt;'EOF'
-apiVersion: kustomize.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
   - ../../base
