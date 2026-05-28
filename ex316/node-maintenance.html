@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Maintenance — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Node Maintenance</div>
+        <h1>Node Maintenance and OpenShift Virtualization Updates</h1>
+        <p>Configure node maintenance resources, prepare nodes for maintenance using CLI, drain nodes correctly.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="node-maintenance-overview">Node Maintenance Overview</h2>
+        <pre><code># node-maintenance-operator (NMO) is deployed standalone from OperatorHub
+# Not shipped with OpenShift Virtualization anymore
+
+# NodeMaintenance CR watches:
+# - New CRs: Node is cordoned, no new workloads scheduled, evictable pods drained
+# - Deleted CRs: Node made available for new workloads
+
+# Node maintenance achieves same results as:
+# oc adm cordon + oc adm drain
+
+# IMPORTANT: VMs must have RWX storage to be live migrated
+# Non-migratable VMs will be stopped during maintenance</code></pre>
+
+        <h2 id="maintenance-resource">Configuring Node Maintenance Resources</h2>
+        <pre><code># Install Node Maintenance Operator
+cat &gt; nmo-subscription.yaml &lt;&lt;EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: node-maintenance-operator
+  namespace: openshift-nm
+spec:
+  channel: stable
+  name: node-maintenance-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+
+oc apply -f nmo-subscription.yaml
+
+# Create NodeMaintenance CR
+cat &gt; node-maintenance.yaml &lt;&lt;EOF
+apiVersion: cni.open-cluster-management.io/v1beta1
+kind: NodeMaintenance
+metadata:
+  name: worker-0-maintenance
+spec:
+  node:
+    name: worker-0
+EOF
+
+oc apply -f node-maintenance.yaml
+
+# Verify node is cordoned
+oc get nodes worker-0
+# Expected: SchedulingDisabled
+
+# Delete NodeMaintenance CR when done
+oc delete nodemaintenance worker-0-maintenance</code></pre>
+
+        <h2 id="drain-nodes">Preparing Nodes for Maintenance (CLI)</h2>
+        <pre><code># Step 1: Cordon node (stop scheduling)
+oc adm cordon &lt;node_name&gt;
+
+# Step 2: Drain node (evict pods/VMs)
+oc adm drain &lt;node_name&gt; --force=true \
+  --ignore-daemonsets \
+  --delete-emptydir-data \
+  --timeout=5m \
+  --skip-wait-for-delete-timeout=0
+
+# Step 3: Verify node is ready for maintenance
+oc get nodes &lt;node_name&gt;
+# Should show: NotReady,SchedulingDisabled or Ready,SchedulingDisabled
+
+# Step 4: When maintenance is complete
+oc adm uncordon &lt;node_name&gt;</code></pre>
+
+        <h2 id="correct-drain">Draining Nodes Correctly</h2>
+        <pre><code># Proper drain sequence for VMs with live migration
+# 1. Cordon the node
+oc adm cordon &lt;node_name&gt;
+
+# 2. Drain with appropriate settings
+oc adm drain &lt;node_name&gt; \
+  --ignore-daemonsets \
+  --force \
+  --delete-emptydir-data
+
+# 3. Monitor migration progress
+oc get vmim -A
+
+# 4. Verify VMs have migrated
+oc get vmi -A
+
+# For non-migratable VMs (RWO storage, GPUs):
+# - Set evictionStrategy: LiveMigrateIfPossible
+# - VM will be stopped, not migrated
+# - Use evictionStrategy: None to power down
+
+# For bare metal nodes:
+# - More time needed for maintenance
+# - Workloads need to restart elsewhere
+# - Node maintenance mode gracefully powers down nodes
+# - Detailed progress and status provided during maintenance</code></pre>
+
+        <h2 id="node-labeling">Managing Node Labeling for CPU Models</h2>
+        <pre><code># Node labeller manages CPU model labels
+# Obsolete CPU models are automatically filtered
+
+# Default obsolete CPU models (cannot be removed):
+# 486, Conroe, athlon, core2duo, coreduo, kvm32, kvm64, n270,
+# pentium, pentium2, pentium3, pentiumpro, phenom, qemu32, qemu64
+
+# Add to obsolete CPU list
+cat &gt; obsolete-cpus.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  obsoleteCPUs:
+    cpuModels:
+    - "obsolete-cpu-model-1"
+    - "obsolete-cpu-model-2"
+EOF
+
+oc apply -f obsolete-cpus.yaml
+
+# Skip node from labelling
+oc annotate node &lt;node_name&gt; node-labeller.kubevirt.io/skip-node=true
+
+# Remove annotation to resume labelling
+oc annotate node &lt;node_name&gt; node-labeller.kubevirt.io/skip-node-</code></pre>
+
+        <h2 id="node-failure">Deleting Failed Nodes</h2>
+        <pre><code># If a node fails without machine health checks:
+# 1. Mark node unschedulable
+oc adm cordon &lt;node_name&gt;
+
+# 2. Drain all pods
+oc adm drain &lt;node_name&gt; --force=true
+
+# 3. Delete node
+oc delete node &lt;node_name&gt;
+
+# 4. Nodes with runStrategy: Always are rescheduled
+# 5. Verify VM failover
+oc get vmis -A</code></pre>
+
+        <h2 id="ksm">Kernel Samepage Merging (KSM)</h2>
+        <pre><code># KSM deduplicates identical data in VM memory pages
+# Activates when nodes are overloaded
+# IMPORTANT: Only use KSM with trusted workloads
+
+# Enable KSM for all nodes
+cat &gt; ksm-all.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  configuration:
+    ksmConfiguration:
+      nodeLabelSelector: {}
+EOF
+
+# Enable KSM on subset of nodes
+cat &gt; ksm-selective.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  configuration:
+    ksmConfiguration:
+      nodeLabelSelector:
+        matchLabels:
+          node-role.kubernetes.io/compute: "true"
+EOF
+
+# KSM node labels:
+# kubevirt.io/ksm-handler-managed: "true" when KSM activated
+# kubevirt.io/ksm-enabled: "true" when KSM enabled
+
+# Disable KSM
+oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
+# Remove the ksmConfiguration stanza</code></pre>
+
+        <h2 id="updating">Updating OpenShift Virtualization</h2>
+        <pre><code># Updating the HyperConverged operator updates all components
+# Update via web console or CLI
+
+# Via CLI:
+oc edit subscription hco-operatorhub -n openshift-cnv
+# Change to desired channel/CSV
+
+# Or update HyperConverged CR
+cat &gt; update-hc.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  uninstallStrategy: UninstallAvailable
+  workloadUpdateStrategy:
+    workloadsUpdateStrategy: Drain
+EOF
+
+# Monitoring update progress
+oc get hco kubevirt-hyperconverged -n openshift-cnv -o jsonpath='{.status.conditions[*].status}'</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 11</p></footer>
+</body>
+</html>

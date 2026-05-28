@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Snapshots — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / VM Snapshots</div>
+        <h1>Manage Virtual Machine Snapshots</h1>
+        <p>Create and manage VM snapshots, restore from snapshots.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="snapshot-overview">About VM Snapshots</h2>
+        <pre><code># VM Snapshot represents state and data at a specific point in time
+# Supports:
+# - Offline snapshots (powered off VM)
+# - Online snapshots (running VM)
+
+# Snapshot requirements:
+# - Disks must be DataVolumes or PVCs
+# - Disks must belong to storage class supporting CSI volume snapshots
+# - Disks must be bound to PV and populated with datasource
+# - vTPM device: cloning from snapshot is NOT supported
+
+# Snapshot stores:
+# - Copy of each CSI volume attached to VM
+# - Copy of VM specification and metadata
+
+# IMPORTANT: Snapshots are immutable - cannot be changed after creation</code></pre>
+
+        <h2 id="snapshot-crds">VM Snapshot CRDs</h2>
+        <pre><code># Three CRDs manage snapshots:
+# 1. VirtualMachineSnapshot: User request to create snapshot
+# 2. VirtualMachineSnapshotContent: Provisioned snapshot resource
+# 3. VirtualMachineRestore: User request to restore from snapshot
+
+# Controller binds VirtualMachineSnapshotContent to VirtualMachineSnapshot
+# One-to-one mapping between snapshot and snapshot content</code></pre>
+
+        <h2 id="create-snapshot">Creating Snapshots</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select VM → Snapshots tab
+# 3. Click Take Snapshot
+# 4. Enter snapshot name
+# 5. Expand "Disks included in this Snapshot" to verify
+# 6. If disks cannot be included, check "I am aware of this warning"
+# 7. Click Save
+
+# Via CLI:
+cat &gt; snapshot.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineSnapshot
+metadata:
+  name: my-snapshot
+  namespace: my-namespace
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: my-vm
+EOF
+
+oc create -f snapshot.yaml
+
+# Monitor snapshot creation
+oc wait my-vm my-snapshot --for condition=Ready -n my-namespace
+
+# Check status: InProgress → Succeeded/Failed</code></pre>
+
+        <h2 id="online-snapshots">Online Snapshots</h2>
+        <pre><code># Online snapshot requirements:
+# - QEMU guest agent must be installed and running
+# - Agent freezes/thaws filesystem for consistency
+# - Without agent: best-effort snapshot only
+
+# Default online snapshot timeout: 5 minutes
+# Change with FailureDeadline attribute:
+cat &gt; snapshot-timeout.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineSnapshot
+metadata:
+  name: my-snapshot
+  namespace: my-namespace
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: my-vm
+  failureDeadline: 10m
+EOF
+
+# Snapshot indications:
+# - Online: VM was running during snapshot
+# - GuestAgent: QEMU guest agent was running (quiesced)
+# - NoGuestAgent: QEMU guest agent not running
+
+# Check indications:
+oc describe vmsnapshot my-snapshot -n my-namespace | grep -A 5 indications
+
+# Enable QEMU guest agent:
+# On Linux: yum install qemu-guest-agent && systemctl enable --now qemu-guest-agent
+# On Windows: Install VirtIO drivers, run qemu-ga-x86_64.msi</code></pre>
+
+        <h2 id="restore-snapshot">Restoring from Snapshots</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select VM → Snapshots tab
+# 3. If running, Options → Stop
+# 4. Select snapshot → Options → Restore VirtualMachine from snapshot
+# 5. Click Restore
+
+# Via CLI - Restore existing VM:
+cat &gt; restore.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineRestore
+metadata:
+  name: my-restore
+  namespace: my-namespace
+spec:
+  source:
+    apiGroup: snapshot.kubevirt.io
+    kind: VirtualMachineSnapshotContent
+    name: my-snapshot-content
+  virtualMachineName: my-vm
+EOF
+
+oc create -f restore.yaml
+
+# Monitor restore
+oc wait virtualmachinerestore my-restore --for condition=Ready -n my-namespace
+
+# Restore to new VM (create from snapshot):
+cat &gt; new-vm-snapshot.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm-cloned
+  namespace: my-namespace
+spec:
+  runStrategy: Always
+  template:
+    spec:
+      domain: {}
+EOF
+
+# Verify restore
+oc describe virtualmachinerestore my-restore -n my-namespace</code></pre>
+
+        <h2 id="manage-snapshots">Managing Snapshots</h2>
+        <pre><code># List all snapshots
+oc get virtualmachinesnapshots -n my-namespace
+
+# List snapshot contents
+oc get virtualmachinesnapshotcontent -n my-namespace
+
+# Delete snapshot
+oc delete virtualmachinesnapshot my-snapshot -n my-namespace
+
+# Check snapshot status
+oc describe vmsnapshot my-snapshot -n my-namespace
+
+# Expected conditions:
+# Progressing: status="False" when complete
+# Ready: status="True" when ready to use
+# readyToUse: true</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 8</p></footer>
+</body>
+</html>

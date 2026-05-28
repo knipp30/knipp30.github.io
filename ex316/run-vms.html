@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run and Access VMs — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Run and Access VMs</div>
+        <h1>Run and Access Virtual Machines</h1>
+        <p>Provision and manage VMs from web console or CLI, virtctl commands, user and group access control.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="virtctl">virtctl CLI Tool</h2>
+        <pre><code># Install virtctl
+# On RHEL 9 or later, Linux, Windows, or macOS:
+dnf install virtctl
+
+# On RHEL 8:
+dnf install virtio-win
+
+# virtctl command categories:
+
+# Information commands
+virtctl version
+virtctl --help
+
+# VM information commands
+virtctl get-vmi &lt;vmi_name&gt; -n &lt;namespace&gt;
+virtctl list-vmis -A
+
+# VM manifest creation commands
+virtctl create vm --name my-vm --instancetype u1.small --preference rhel.9
+virtctl create instancetype --cpu 2 --memory 256Mi
+
+# VM management commands
+virtctl start &lt;vm_name&gt; -n &lt;namespace&gt;
+virtctl stop &lt;vm_name&gt; -n &lt;namespace&gt;
+virtctl restart &lt;vm_name&gt; -n &&lt;namespace&gt;
+virtctl delete &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# VM connection commands
+virtctl console &lt;vm_name&gt; -n &lt;namespace&gt;    # Serial console
+virtctl vnc &lt;vm_name&gt; -n &lt;namespace&gt;          # Virtual console
+virtctl vga &lt;vm_name&gt; -n &lt;namespace&gt;          # VGA console
+virtctl scp &lt;file&gt; &lt;vm_name&gt;:~ -n &lt;namespace&gt;  # Copy file to VM
+virtctl cp &lt;host_path&gt; &lt;vm_name&gt;:&lt;vm_path&gt; -n &lt;namespace&gt;  # Copy file to VM
+virtctl ssh &lt;user&gt;@&lt;vm_name&gt; -n &lt;namespace&gt;   # SSH to VM
+virtctl port-forward &lt;vm_name&gt; 8080:80 -n &lt;namespace&gt;  # Port forward
+
+# VM memory dump commands
+virtctl memory-dump &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# Hot plug/unplug commands
+virtctl add-volume volume-name &lt;vm_name&gt;
+virtctl remove-volume volume-name &lt;vm_name&gt;
+virtctl add-device device-name &lt;vm_name&gt;
+virtctl remove-device device-name &lt;vm_name&gt;
+
+# Image upload commands
+virtctl upload disk --data-volume=my-dv --size=10Gi --image-path=./image.qcow2
+virtctl upload iso --data-volume=my-iso-dv --size=2Gi --image-path=./disk.iso
+
+# Deploy libguestfs
+virtctl deploy --kubeconfig=~/.kube/config</code></pre>
+
+        <h2 id="instancetypes">Instance Types</h2>
+        <pre><code># Instance types define CPU and memory resources for VMs
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineInstancetype
+metadata:
+  name: example-instancetype
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 128Mi
+  # Required fields: spec.cpu.guest and spec.memory.guest
+
+# Predefined instance types (common-instancetypes):
+#   n1.medium     - 1 vCPU, 2 GiB RAM (general purpose)
+#   o1.small      - 1 vCPU, 4 GiB RAM (memory optimized)
+#   cx1.2xlarge   - 8 vCPU, 4 GiB RAM (compute optimized)
+#   u1.medium     - 2 vCPU, 8 GiB RAM (burstable)
+#   m1.large      - 4 vCPU, 4 GiB RAM (standard)
+
+# virtctl usage with instance types
+virtctl create vm \
+  --instancetype &lt;my_instancetype&gt; \
+  --preference &lt;my_preference&gt; \
+  --name my-vm
+
+# Specify namespaced instance type
+virtctl create vm --instancetype namespace/my-instancetype
+
+# Infer instance type from a running VM
+virtctl create vm --name cloned-vm --infer-instancetype &lt;source_vm&gt;
+
+# Creating instance types manually or with virtctl
+virtctl create instancetype --cpu 2 --memory 256Mi</code></pre>
+
+        <h2 id="creating-vm-from-template">Creating VMs from Templates</h2>
+        <pre><code># CLI: Create VM from template with boot source
+virtctl create vm \
+  --name vm-rhel-9 \
+  --instancetype u1.small \
+  --preference rhel.9 \
+  --volumeimport type:http,url:https://example.com/rhel9.qcow2,size:10Gi
+
+# VM manifest structure
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-rhel-9
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: imported-volume
+    spec:
+      source:
+        http:
+          url: https://example.com/rhel9.qcow2
+      storage:
+        resources:
+          requests:
+            storage: 10Gi
+  instancetype:
+    name: u1.small
+  preference:
+    name: rhel.9
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices: {}
+        resources: {}
+      terminationGracePeriodSeconds: 180
+      volumes:
+      - dataVolume:
+          name: imported-volume
+        name: imported-volume
+
+# Create the VM
+oc create -f &lt;vm_manifest&gt;.yaml
+
+# Monitor progress
+oc get dv &lt;data_volume_name&gt;  # Should show PHASE: Succeeded
+oc get pods                    # View importer pod
+virtctl console &lt;vm_name&gt;    # Access serial console</code></pre>
+
+        <h2 id="creating-vm-upload">Creating VMs by Uploading Images</h2>
+        <pre><code># Upload OS images (IMG, ISO, QCOW2) from local machine
+# Via Web Console:
+# 1. Navigate to Virtualization → Catalog
+# 2. Click template without boot source
+# 3. Click Customize VirtualMachine
+# 4. Under Storage, select "Upload (Upload a new file to a PVC)"
+# 5. Browse to image, set disk size
+# 6. Customize VM, click Create
+
+# Via CLI - Upload disk to PVC
+virtctl upload disk \
+  --data-volume=my-dv \
+  --size=10Gi \
+  --image-path=./my-image.qcow2 \
+  -n my-namespace
+
+# Import from URL
+cat &gt; dv.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: my-import
+  namespace: my-namespace
+spec:
+  source:
+    http:
+      url: https://example.com/image.qcow2
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF
+
+oc apply -f dv.yaml
+
+# Monitor import progress
+oc get dv my-import -n my-namespace</code></pre>
+
+        <h2 id="vm-access-control">VM Access Control (RBAC)</h2>
+        <pre><code># Default cluster roles for OpenShift Virtualization
+# - kubevirt-snapshot-admin
+# - kubevirt-hyperconverged-clusterrole
+
+# RBAC for storage features
+# Cluster-wide RBAC roles:
+# - hyperconverged-clusters
+# - kubevirt-admin
+# - kubevirt-edit
+# - kubevirt-view
+
+# Namespaced RBAC roles:
+# - kubevirt-virtual-machine-admin
+# - kubevirt-virtual-machine-user
+# - kubevirt-virtual-machine-operator
+
+# Grant a user access to view VMs in a namespace
+cat &gt; vm-viewer-rolebinding.yaml &lt;&lt;EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vm-viewer
+  namespace: my-namespace
+subjects:
+- kind: User
+  name: john.doe
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-virtual-machine-user
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f vm-viewer-rolebinding.yaml
+
+# Grant admin access to manage VMs in a namespace
+cat &gt; vm-admin-rolebinding.yaml &lt;&lt;EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vm-admin
+  namespace: my-namespace
+subjects:
+- kind: User
+  name: jane.admin
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-virtual-machine-admin
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+oc apply -f vm-admin-rolebinding.yaml</code></pre>
+
+        <h2 id="accessing-vms">Accessing Virtual Machines</h2>
+        <pre><code># Serial console access
+virtctl console &lt;vm_name&gt; -n &lt;namespace&gt;
+# Escape sequence: ^]
+
+# VNC graphical console
+virtctl vnc &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# SSH access
+virtctl ssh user@&lt;vm_name&gt; -n &lt;namespace&gt;
+
+# Copy files to/from VM
+virtctl cp local_file.txt &lt;vm_name&gt;:~/remote_file.txt -n &lt;namespace&gt;
+
+# Port forwarding
+virtctl port-forward &lt;vm_name&gt; 8080:80 -n &lt;namespace&gt;
+# Then access: http://localhost:8080
+
+# Install QEMU guest agent on Linux VMs (required for quiesced snapshots)
+yum install -y qemu-guest-agent
+systemctl enable --now qemu-guest-agent
+
+# Verify agent is connected
+oc get vm &lt;vm_name&gt;
+# Check for AgentConnected status
+
+# Install VirtIO drivers on Windows VMs
+# Attach container-native-virtualization/virtio-win container disk as SATA CD
+# Run qemu-ga-x86_64.msi from guest-agent directory</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 2</p></footer>
+</body>
+</html>

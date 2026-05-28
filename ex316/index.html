@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX316 OpenShift 4.18 Exam Prep — Red Hat Certified Specialist in Virtualization</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">🔧</span> EX316 OpenShift 4.18 Exam Prep — Red Hat Learning Hub</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>OpenShift 4.18<br>Exam Prep Guide</h1>
+            <p class="hero-sub">EX316 — Red Hat Certified Specialist in Virtualization<br>All exam objectives with references to OpenShift Container Platform 4.18 Virtualization documentation</p>
+            <div class="hero-stats">
+                <span class="stat"><span class="stat-num">15</span> Topics</span>
+                <span class="stat"><span class="stat-num">4.18</span> OCP</span>
+                <span class="stat"><span class="stat-num">2026</span> Updated</span>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-header">
+        <h2>Exam Objectives</h2>
+        <p>Each topic links to detailed notes based on official OpenShift Virtualization 4.18 documentation and exam objectives</p>
+    </div>
+
+    <div class="card-grid">
+        <a href="operator-install.html" class="card">
+            <div class="card-icon">📦</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 1</span>
+                <h3>Deploy the Virtualization Operator</h3>
+                <p>OpenShift Virtualization components, HyperConverged Operator (HCO), CDI Operator, SSP Operator, and deployment via Operator Lifecycle Manager.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="run-vms.html" class="card">
+            <div class="card-icon">🖥️</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 2</span>
+                <h3>Run and Access Virtual Machines</h3>
+                <p>Provision and manage VMs from web console or CLI, virtctl commands, user and group access control for VM resources.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="vm-networking.html" class="card">
+            <div class="card-icon">🌐</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 3</span>
+                <h3>Configure Kubernetes Networking for VMs</h3>
+                <p>Kubernetes SDN for VM communication, network policies, external access, user-defined networks, Multus CNI, ClusterIP services.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="external-networks.html" class="card">
+            <div class="card-icon">🔗</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 4</span>
+                <h3>Connect VMs to External Networks</h3>
+                <p>Multus CNI plug-in, NMstate operator, multihomed nodes and VMs, user-defined network connections.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="vm-storage.html" class="card">
+            <div class="card-icon">💾</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 5</span>
+                <h3>Configure Kubernetes Storage for VMs</h3>
+                <p>Persistent storage services, attaching/detaching disks, external storage via Multus, data volumes, CDI.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="backup-restore.html" class="card">
+            <div class="card-icon">🔒</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 6</span>
+                <h3>OADP Backup and Restore</h3>
+                <p>Deploy the OADP Operator, back up and restore virtual machines with OADP and VM snapshots.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="templates.html" class="card">
+            <div class="card-icon">📋</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 7</span>
+                <h3>Manage VM Templates</h3>
+                <p>Preconfigured templates, custom templates, cloud-init for credentials, repositories, and arbitrary commands.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="vm-snapshots.html" class="card">
+            <div class="card-icon">📸</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 8</span>
+                <h3>Manage VM Snapshots</h3>
+                <p>Create and manage VM snapshots, create a snapshot of a VM, restore a VM from a snapshot.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="migrate-clone.html" class="card">
+            <div class="card-icon">🔄</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 9</span>
+                <h3>Migrate and Clone VMs</h3>
+                <p>Import OVA images, prepare for cloning, clone VMs via web console, clone disks using data volumes.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="live-migration.html" class="card">
+            <div class="card-icon">🏃</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 10</span>
+                <h3>Perform Live Migrations</h3>
+                <p>Live migration limitations, node affinity, start/monitor/cancel VM migrations.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="node-maintenance.html" class="card">
+            <div class="card-icon">🔧</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 11</span>
+                <h3>Node Maintenance and Updates</h3>
+                <p>Node maintenance resources, prepare nodes for maintenance using CLI, drain nodes correctly.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="load-balancing.html" class="card">
+            <div class="card-icon">⚖️</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 12</span>
+                <h3>VM Load Balancing</h3>
+                <p>Load balancing with Kubernetes networking, NodePort services, customized routes.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="health-probes.html" class="card">
+            <div class="card-icon">💓</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 13</span>
+                <h3>Configure Health Probes</h3>
+                <p>Run strategy parameters, health probes, watchdog devices to monitor VM health and responsiveness.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="node-failure.html" class="card">
+            <div class="card-icon">🛡️</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 14</span>
+                <h3>Prepare VMs for Node Failure</h3>
+                <p>Eviction strategies, node selectors, affinity, anti-affinity, tolerations, taints, watchdog monitoring.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+
+        <a href="system-admin.html" class="card">
+            <div class="card-icon">⚙️</div>
+            <div class="card-body">
+                <span class="card-tag">Objective 15</span>
+                <h3>Basic System Administration</h3>
+                <p>Start/stop services, configure services at boot time, install software packages in the operating system.</p>
+                <span class="card-link">Study guide →</span>
+            </div>
+        </a>
+    </div>
+
+    <footer>
+        <p>EX316 OpenShift 4.18 Exam Preparation Guide · Red Hat Certified Specialist in Virtualization · 2026</p>
+    </footer>
+</body>
+</html>

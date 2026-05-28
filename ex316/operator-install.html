@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploy Virtualization Operator — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Deploy Virtualization Operator</div>
+        <h1>Deploy the OpenShift Virtualization Operator</h1>
+        <p>OpenShift Virtualization components, HyperConverged Operator (HCO), CDI, SSP, and deployment via Operator Lifecycle Manager.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="virtualization-components">OpenShift Virtualization Components</h2>
+        <p>OpenShift Virtualization consists of several operators that are bundled together:</p>
+        <ul>
+            <li><strong>HyperConverged Operator (HCO)</strong> — The main operator that manages OpenShift Virtualization deployment, coordination, and lifecycle.</li>
+            <li><strong>Containerized Data Importer (CDI) Operator</strong> — Handles VM disk imports, uploads, and cloning from URLs, uploads, and other sources.</li>
+            <li><strong>Cluster Network Addons Operator (CNV)</strong> — Provides network add-ons for virtual machine networking.</li>
+            <li><strong>Hostpath Provisioner (HPP) Operator</strong> — Local storage provisioner for virtual machine disks.</li>
+            <li><strong>Scheduling, Scale, and Performance (SSP) Operator</strong> — Provides scheduling, scale, and performance optimizations for VM workloads.</li>
+            <li><strong>OpenShift Virtualization Operator</strong> — The umbrella operator installed in the mandatory <code>openshift-cnv</code> namespace.</li>
+        </ul>
+
+        <div class="callout">
+            <div class="callout-title">⚠️ Important</div>
+            <p>The OpenShift Virtualization Operator <strong>MUST</strong> be installed in the <code>openshift-cnv</code> namespace. Installing it in any other namespace will cause installation to fail.</p>
+        </div>
+
+        <h2 id="installation-requirements">Installation Requirements</h2>
+        <pre><code># Supported platforms
+# - On-premise bare metal servers
+# - IBM Z / IBM LinuxONE (s390x) - Technology Preview only
+# - AWS (GA) with EBS, ODF, Portworx, FSx
+# - ROSA Classic (GA)
+# - Azure Red Hat OpenShift (Tech Preview)
+# - Google Cloud (Tech Preview)
+
+# Hardware requirements
+# CPU: x86_64 (Intel VT or AMD-V required), s390x (Tech Preview)
+# OS: RHCOS on worker nodes (RHEL worker nodes NOT supported)
+# Storage: Must create a default storage class
+#          Set storageclass.kubevirt.io/is-default-virt-class annotation to "true"
+
+# Live migration requirements
+# - Shared storage with ReadWriteMany (RWX) access mode
+# - Sufficient RAM and network bandwidth
+# - Dedicated Multus network for live migration (highly recommended)
+
+# Important limitations
+# - Single-stack IPv6 clusters are NOT supported
+# - Single-node OpenShift: no HA, no live migration, no eviction strategy
+# - AWS bare-metal: no SR-IOV or bridge CNI networks</code></pre>
+
+        <h2 id="install-web-console">Installing via Web Console</h2>
+        <pre><code>1. Log in as cluster-admin
+2. Navigate to OperatorHub (Administrator perspective)
+3. Search for "Virtualization"
+4. Select OpenShift Virtualization Operator (Red Hat source)
+5. Click Install
+6. Configure:
+   a. Update Channel: stable
+   b. Installed Namespace: openshift-cnv (recommended)
+   c. Approval Strategy: Automatic (recommended)
+      ⚠️ Manual is inadvisable - missing updates makes cluster unsupported
+7. Click Install
+8. Click Create HyperConverged
+9. (Optional) Configure Infra and Workloads node placement
+10. Click Create
+
+# Verify installation
+oc get pods -n openshift-cnv
+# All pods should show Running state</code></pre>
+
+        <h2 id="install-cli">Installing via CLI</h2>
+        <pre><code># Step 1: Subscribe to the OpenShift Virtualization catalog
+cat &gt; subscription.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-cnv
+  labels:
+    openshift.io/cluster-monitoring: "true"
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: kubevirt-hyperconverged-group
+  namespace: openshift-cnv
+spec:
+  targetNamespaces:
+  - openshift-cnv
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-operatorhub
+  namespace: openshift-cnv
+spec:
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  name: kubevirt-hyperconverged
+  startingCSV: kubevirt-hyperconverged-operator.v4.18.29
+  channel: "stable"
+EOF
+
+oc apply -f subscription.yaml
+
+# Step 2: Verify subscription
+oc get csv -n openshift-cnv
+# Should show PHASE: Succeeded
+
+# Step 3: Verify HyperConverged CR version
+oc get hco -n openshift-cnv kubevirt-hyperconverged -o json | jq .status.versions
+
+# Step 4: Deploy HyperConverged CR
+cat &gt; hyperconverged.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  evictionStrategy: LiveMigrate
+EOF
+
+oc apply -f hyperconverged.yaml
+
+# Step 5: Watch CSV progress
+watch oc get csv -n openshift-cnv
+# Expected: PHASE Succeeded
+
+# Step 6: Verify HyperConverged CR conditions
+oc get hco kubevirt-hyperconverged -n openshift-cnv -o json | \
+  jq -r '.status.conditions[] | {type,status}'
+# Expected: ReconcileComplete=True, Available=True,
+#           Progressing=False, Degraded=False, Upgradeable=True</code></pre>
+
+        <h2 id="uninstall">Uninstalling OpenShift Virtualization</h2>
+        <pre><code># Via Web Console:
+# 1. Delete the HyperConverged CR (Virtualization → Installed Operators)
+# 2. Uninstall the Operator (Installed Operators → Uninstall)
+# 3. Delete the openshift-cnv namespace
+# 4. Delete Virtualization CRDs
+
+# Via CLI:
+# IMPORTANT: Delete all VMs first! Cannot uninstall with workloads remaining.
+
+# Step 1: Delete HyperConverged CR
+oc delete HyperConverged kubevirt-hyperconverged -n openshift-cnv
+
+# Step 2: Delete Operator subscription
+oc delete subscription hco-operatorhub -n openshift-cnv
+
+# Step 3: Delete ClusterServiceVersion
+oc delete csv -n openshift-cnv -l operators.coreos.com/kubevirt-hyperconverged.openshift-cnv
+
+# Step 4: Delete namespace
+oc delete namespace openshift-cnv
+
+# Step 5: List CRDs (dry-run first)
+oc delete crd --dry-run=client -l operators.coreos.com/kubevirt-hyperconverged.openshift-cnv
+
+# Step 6: Delete CRDs
+oc delete crd -l operators.coreos.com/kubevirt-hyperconverged.openshift-cnv</code></pre>
+
+        <h2 id="node-placement">Node Placement Rules</h2>
+        <pre><code># Configure node placement for HCO components
+cat &gt; hc-placement.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  configuration:
+    infraNodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/infra: "true"
+    workloadsNodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/compute: "true"
+      tolerations:
+      - key: "node-role.kubernetes.io/compute"
+        operator: "Exists"
+        effect: "NoSchedule"
+EOF
+
+oc apply -f hc-placement.yaml
+
+# Subscription object node placement
+cat &gt; sub-placement.yaml &lt;&lt;EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-operatorhub
+  namespace: openshift-cnv
+spec:
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: "true"
+EOF</code></pre>
+
+        <h2 id="physical-overhead">Physical Resource Overhead</h2>
+        <pre><code># Memory overhead calculations
+# Infrastructure node: ~150 MiB per node
+# Worker node: ~360 MiB per node
+# Total infrastructure: 2179 MiB across all infra nodes
+# VM overhead: (0.002 × requested memory) + 218 MiB + (8 MiB × vCPUs) + (16 MiB × graphics devices)
+# +1 GiB per SR-IOV device, +1 GiB per GPU, +256 MiB per SEV, +53 MiB per TPM
+
+# CPU overhead
+# Infrastructure nodes: ~4 cores total (4000 millicores)
+# Worker nodes: 2 cores + CPU overhead per VM
+# With dedicated CPUs: 1:1 impact on cluster CPU overhead
+
+# Storage overhead
+# Per node: ~10 GiB on-disk storage
+# Per VM: depends on specific resource requests</code></pre>
+
+        <h2 id="supported-limits">Object Maximums</h2>
+        <pre><code># Key limits to know:
+# - Check tested maximums in OpenShift Virtualization documentation
+# - OpenShift Container Platform object maximums apply
+# - OpenShift Virtualization supported limits apply
+# - Live migration: max 5 parallel in cluster by default</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 1</p></footer>
+</body>
+</html>

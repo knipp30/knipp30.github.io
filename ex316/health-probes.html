@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Probes — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Health Probes</div>
+        <h1>Configure Health Probes for VMs</h1>
+        <p>Run strategy parameters, health probes, watchdog devices to monitor VM health.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="run-strategy">Run Strategy Parameters</h2>
+        <pre><code># spec.runStrategy controls VM lifecycle behavior
+
+# RunStrategy values:
+# Always:      VMI always present (new VMI created if original stops)
+# RerunOnFailure: VMI re-created on failure, NOT on stop
+# Manual:      User controls via virtctl start/stop/restart
+# Halted:      No VMI present when VM created
+
+# Run strategy transitions:
+# Start command:
+#   - Always → Always
+#   - RerunOnFailure → RerunOnFailure
+#   - Manual → Manual
+#   - Halted → Always
+# Stop command:
+#   - Always → Halted
+#   - RerunOnFailure → RerunOnFailure
+#   - Manual → Manual
+# Restart command:
+#   - Always → Always
+#   - RerunOnFailure → RerunOnFailure
+#   - Manual → Manual</code></pre>
+
+        <h2 id="configure-run-strategy">Configuring Run Strategy</h2>
+        <pre><code># Configure VM run strategy via CLI
+cat &gt; vm-run-strategy.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  runStrategy: Always  # or RerunOnFailure, Manual, Halted
+  template:
+    spec:
+      domain: {}
+EOF
+
+# Edit existing VM run strategy
+oc edit vm my-vm -n my-namespace
+# Update: spec.runStrategy: Always
+
+# virtctl commands affect run strategy:
+# virtctl start → VM will run based on strategy
+# virtctl stop → VM halted (but strategy preserved)
+# virtctl restart → VM restarted based on strategy</code></pre>
+
+        <h2 id="health-probes">Health Probes</h2>
+        <pre><code># Health probes monitor VM health and responsiveness
+# Types:
+# - Liveness: Determines if VM is running, restarts if probe fails
+# - Readiness: Determines if VM is ready to accept traffic
+# - Guest agent ping: Uses QEMU guest agent to check VM responsiveness
+
+# Liveness probe (TCP)
+cat &gt; vm-liveness.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices: {}
+      readinessProbe:
+        tcpSocket:
+          port: 80
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+      livenessProbe:
+        tcpSocket:
+          port: 22
+        initialDelaySeconds: 30
+        periodSeconds: 10
+EOF
+
+# Guest agent ping probe
+cat &gt; vm-guest-ping.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          guestAgent: {}
+      guestAgent:
+        enabled: true
+      livenessProbe:
+        guestAgentPing: {}
+EOF</code></pre>
+
+        <h2 id="watchdog">Watchdog Devices</h2>
+        <pre><code># Watchdog monitors VM and node health
+# Triggers actions when VM becomes unresponsive
+
+# Configure watchdog device
+cat &gt; vm-watchdog.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          watchdogs:
+          - name: my-watchdog
+            i6300esb:
+              action: reset
+EOF
+
+# Watchdog actions:
+# reset:     Reboot the VM (default)
+# powerOff:  Power down the VM
+# shutdown:  Graceful shutdown
+# pause:     Pause the VM
+
+# Configure watchdog with node health check
+cat &gt; vm-watchdog-nhc.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          watchdogs:
+          - name: nhc-watchdog
+            i6300esb:
+              action: reset
+      nodeHealthCheckConfig:
+        enabled: true
+EOF</code></pre>
+
+        <h2 id="vm-health-monitoring">VM Health Monitoring</h2>
+        <pre><code># Monitor VM health
+oc get vm my-vm -n my-namespace -o jsonpath='{.status.conditions}'
+
+# Check VM instance status
+oc get vmi my-vm -n my-namespace -o jsonpath='{.status.phase}'
+
+# VM conditions:
+# - VMReady: VM is ready (running or stopped)
+# - Paused: VM is paused
+# - Ready: VMI is ready
+
+# Monitoring via web console:
+# Virtualization → Overview → Status card
+# Shows overall health based on alerts and conditions</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 13</p></footer>
+</body>
+</html>

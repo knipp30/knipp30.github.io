@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Failure — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Node Failure</div>
+        <h1>Prepare VMs for Node Failure</h1>
+        <p>Eviction strategies, node selectors, affinity, anti-affinity, tolerations, taints, watchdog monitoring.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="eviction-strategies">Eviction Strategies</h2>
+        <pre><code># Eviction strategies determine VM behavior during node loss/maintenance
+
+# Eviction strategies:
+# LiveMigrate:      VM live migrated during node drain (default multi-node)
+#                    - VMs with non-migratable config block drains
+#                    - Set non-migratable VMs to LiveMigrateIfPossible
+# LiveMigrateIfPossible: Upgrade prioritized, VMs not blocked
+#                        - Migratable VMs: live migrate
+#                        - Non-migratable VMs: stop, do not block
+# None:              VMs powered down (default single-node)
+
+# Configure VM eviction strategy
+cat &gt; vm-eviction.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      evictionStrategy: LiveMigrateIfPossible
+EOF
+
+# Edit existing VM
+oc edit vm my-vm -n my-namespace
+# Update: spec.template.spec.evictionStrategy: LiveMigrateIfPossible
+
+# Restart VM to apply changes
+virtctl restart my-vm -n my-namespace
+
+# Cluster-wide eviction strategy
+oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
+# Set: spec.evictionStrategy: LiveMigrate</code></pre>
+
+        <h2 id="node-selectors">Node Selectors</h2>
+        <pre><code># Node selector: Simplest form of node placement
+cat &gt; vm-node-selector.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/compute: "true"
+        disktype: ssd
+EOF
+
+# VMs will only schedule on nodes with matching labels</code></pre>
+
+        <h2 id="node-affinity">Node Affinity</h2>
+        <pre><code># Node affinity: More flexible than node selectors
+
+# Required node affinity (hard requirement)
+cat &gt; vm-required-affinity.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/compute
+                operator: In
+                values:
+                - "true"
+EOF
+
+# Preferred node affinity (soft requirement)
+cat &gt; vm-preferred-affinity.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: node-role.kubernetes.io/compute
+                operator: In
+                values:
+                - "true"
+EOF</code></pre>
+
+        <h2 id="anti-affinity">Anti-Affinity</h2>
+        <pre><code># Spread VMs across different nodes for high availability
+cat &gt; vm-anti-affinity.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - my-app
+            topologyKey: kubernetes.io/hostname
+EOF
+
+# Spread across failure domains
+cat &gt; zone-affinity.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - my-app
+            topologyKey: topology.kubernetes.io/zone
+EOF</code></pre>
+
+        <h2 id="tolerations">Tolerations and Taints</h2>
+        <pre><code># Taints on nodes, tolerations on VMs
+
+# Node with taint
+oc adm taint nodes &lt;node_name&gt; key1=value1:NoSchedule
+
+# VM tolerating the taint
+cat &gt; vm-toleration.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      tolerations:
+      - key: "key1"
+        operator: "Equal"
+        value: "value1"
+        effect: "NoSchedule"
+EOF
+
+# Common toleration patterns:
+# tolerations:
+# - key: "node-role.kubernetes.io/master"
+#   operator: "Exists"
+#   effect: "NoSchedule"
+#
+# tolerations:
+# - key: "dedicated"
+#   operator: "Exists"
+#   effect: "NoSchedule"
+#
+# tolerations:
+# - effect: "NoExecute"
+#   operator: "Exists"</code></pre>
+
+        <h2 id="watchdog-monitoring">Watchdog Monitoring</h2>
+        <pre><code># Watchdog monitors VM health and can trigger node failure recovery
+
+# Configure watchdog for node failure detection
+cat &gt; vm-watchdog.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          watchdogs:
+          - name: my-watchdog
+            i6300esb:
+              action: reset
+EOF
+
+# Watchdog actions:
+# reset: Reboot VM (default)
+# powerOff: Power down VM
+# shutdown: Graceful shutdown
+# pause: Pause VM
+
+# Health checks for VMs
+# - Liveness probe: TCP, HTTP, exec
+# - Readiness probe: TCP, HTTP, exec
+# - Guest agent ping: Uses QEMU guest agent</code></pre>
+
+        <h2 id="ha-config">High Availability Configuration</h2>
+        <pre><code># Machine Health Check for IPI clusters
+cat &gt; mhc.yaml &lt;&lt;EOF
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: node-mhc
+  namespace: openshift-machine-api
+spec:
+  clusterSelector: {}
+  maxUnhealthy: 20%
+  nodeStartupTimeout: 10m
+  unhealthyConditions:
+  - type: Ready
+    status: Unknown
+    timeout: 300s
+  - type: Ready
+    status: "False"
+    timeout: 300s
+EOF
+
+# Node Health Check Operator for non-IPI
+# Deploy Self Node Remediation Operator or Fence Agents Remediation Operator
+
+# Without external monitoring, VMs lose high availability
+# Consider: runStrategy: Always with evictionStrategy: LiveMigrate</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 14</p></footer>
+</body>
+</html>

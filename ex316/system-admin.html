@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Administration — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / System Administration</div>
+        <h1>Basic System Administration</h1>
+        <p>Start/stop services, configure services at boot time, install software packages.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="systemd">Managing Services with systemd</h2>
+        <pre><code># Start a service
+systemctl start &lt;service_name&gt;
+
+# Stop a service
+systemctl stop &lt;service_name&gt;
+
+# Restart a service
+systemctl restart &lt;service_name&gt;
+
+# Reload service configuration (no downtime)
+systemctl reload &lt;service_name&gt;
+
+# Check service status
+systemctl status &lt;service_name&gt;
+
+# View service logs
+journalctl -u &lt;service_name&gt; -f
+
+# Common services for VMs:
+systemctl start sshd
+systemctl stop sshd
+systemctl restart network
+
+# Check if service is enabled
+systemctl is-enabled &lt;service_name&gt;</code></pre>
+
+        <h2 id="boot-services">Enabling Services at Boot</h2>
+        <pre><code># Enable service to start at boot
+systemctl enable &lt;service_name&gt;
+
+# Enable and start immediately
+systemctl enable --now &lt;service_name&gt;
+
+# Disable service at boot
+systemctl disable &lt;service_name&gt;
+
+# List all enabled services
+systemctl list-unit-files --type=service --state=enabled
+
+# Common services to enable at boot:
+systemctl enable --now sshd
+systemctl enable --now firewalld
+systemctl enable --now chronyd
+
+# Mask service (prevent from ever starting)
+systemctl mask &lt;service_name&gt;
+
+# Unmask service
+systemctl unmask &lt;service_name&gt;</code></pre>
+
+        <h2 id="software-packages">Installing Software Packages</h2>
+        <pre><code># DNF (RHEL 8+/Fedora)
+# Install package
+dnf install &lt;package_name&gt;
+
+# Install multiple packages
+dnf install vim net-tools curl
+
+# Remove package
+dnf remove &lt;package_name&gt;
+
+# Search for package
+dnf search &lt;keyword&gt;
+
+# List installed packages
+dnf list installed
+
+# Update all packages
+dnf update
+
+# Update specific package
+dnf update &lt;package_name&gt;
+
+# List available packages
+dnf list available
+
+# Install from local RPM
+dnf install ./package.rpm
+
+# YUM (RHEL 7)
+yum install &lt;package_name&gt;
+yum remove &&lt;package_name&gt;
+yum update
+yum list installed
+
+# RPM (low-level)
+rpm -ivh &lt;package_name&gt;.rpm
+rpm -Uvh &lt;package_name&gt;.rpm
+rpm -e &lt;package_name&gt;
+rpm -qa | grep &lt;package_name&gt;</code></pre>
+
+        <h2 id="repos">Managing Software Repositories</h2>
+        <pre><code># List configured repositories
+dnf repolist
+dnf repolist all
+
+# Enable repository
+dnf config-manager --set-enabled &lt;repo_name&gt;
+
+# Disable repository
+dnf config-manager --set-disabled &lt;repo_name&gt;
+
+# Configure subscription manager
+subscription-manager register
+subscription-manager attach --auto
+subscription-manager repos --enable &lt;repo_id&gt;
+subscription-manager repos --disable &lt;repo_id&gt;
+
+# Common repositories:
+subscription-manager repos --enable=rhel-9-for-x86_64-baseos-rpms
+subscription-manager repos --enable=rhel-9-for-x86_64-appstream-rpms
+
+# Add custom repository
+cat &gt; /etc/yum.repos.d/custom.repo &lt;&lt;EOF
+[custom-repo]
+name=Custom Repository
+baseurl=https://example.com/repo/rhel/9/x86_64/
+enabled=1
+gpgcheck=0
+EOF</code></pre>
+
+        <h2 id="services-vm">Service Management for VMs</h2>
+        <pre><code># Manage services inside VMs via SSH
+virtctl ssh root@&lt;vm_name&gt; -n my-namespace &lt;&lt;SCRIPT
+systemctl start httpd
+systemctl enable --now httpd
+systemctl status httpd
+SCRIPT
+
+# Manage services inside VMs via console
+virtctl console &lt;vm_name&gt; -n my-namespace
+
+# Install software inside VM via cloud-init
+# In cloud-init user data:
+# #cloud-config
+# packages:
+#   - httpd
+#   - net-tools
+# runcmd:
+#   - systemctl enable --now httpd</code></pre>
+
+        <h2 id="basic-admin">Additional System Administration Tasks</h2>
+        <pre><code># Check disk usage
+df -h
+du -sh /var/log
+
+# Check memory
+free -m
+
+# Check CPU
+lscpu
+
+# Network configuration
+ip addr show
+ip route show
+nmcli connection show
+
+# Firewall configuration
+firewall-cmd --list-all
+firewall-cmd --add-service=http --permanent
+firewall-cmd --reload
+
+# Time synchronization
+timedatectl
+chronyc tracking
+
+# User management
+useradd -m &lt;username&gt;
+usermod -aG wheel &lt;username&gt;
+passwd &lt;username&gt;
+visudo</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 15</p></footer>
+</body>
+</html>

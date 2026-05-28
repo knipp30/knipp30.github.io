@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Templates — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / VM Templates</div>
+        <h1>Manage Virtual Machine Templates</h1>
+        <p>Preconfigured templates, custom templates, cloud-init for credentials, repositories, and arbitrary commands.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="golden-images">Golden Images</h2>
+        <pre><code># Golden images are preconfigured VM snapshots for rapid deployment
+# Red Hat publishes golden images as container disks in registry
+
+# Golden images stored in:
+# - Default namespace: openshift-virtualization-os-images
+# - Can be configured custom namespace
+
+# Golden images are automatically updated
+# Can disable/re-enable automatic updates
+
+# Configure custom namespace for golden images
+# Via Web Console:
+# Virtualization → Overview → Settings → Cluster → Bootable volumes project
+
+# Via CLI:
+oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
+# Update: spec.commonBootImageNamespace: my-custom-namespace</code></pre>
+
+        <h2 id="preconfigured-templates">Preconfigured Templates</h2>
+        <pre><code># Preconfigured templates include:
+# - Red Hat Enterprise Linux (RHEL) templates
+# - Windows templates
+# - Instance types (n1.medium, o1.small, cx1.2xlarge, u1.medium, m1.large)
+# - OS preferences (rhel.8, rhel.9, windows.*)
+
+# Instance types define CPU and memory:
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  name: u1.small
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 2Gi
+
+# OS preferences define OS-specific settings
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachinePreference
+metadata:
+  name: rhel.9
+spec:
+  preference:
+    cpu: 2
+    memory: 4Gi
+    disks:
+    - name: rootdisk
+      size: 10Gi
+
+# Create VM from template via web console:
+# 1. Navigate to Virtualization → Catalog
+# 2. Select template
+# 3. Customize VM parameters
+# 4. Click Create VirtualMachine
+
+# Create VM from template via CLI:
+virtctl create vm \
+  --name my-rhel-vm \
+  --instancetype u1.small \
+  --preference rhel.9</code></pre>
+
+        <h2 id="custom-templates">Creating Custom Templates</h2>
+        <pre><code># Custom template with cloud-init
+cat &gt; custom-template.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-custom-template
+  annotations:
+    kubevirt.io/last-applied-configuration: |
+      {
+        "metadata": {...},
+        "spec": {...}
+      }
+spec:
+  instancetype:
+    name: u1.small
+  preference:
+    name: rhel.9
+  dataVolumeTemplates:
+  - metadata:
+      name: my-disk
+    spec:
+      source:
+        pvc:
+          name: rhel9-golden-image
+          namespace: openshift-virtualization-os-images
+      storage:
+        resources:
+          requests:
+            storage: 10Gi
+  runStrategy: Halted
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: my-disk
+      cloudInitNoCloud:
+        secretRef: custom-cloud-init
+EOF
+
+# Create cloud-init secret
+cat &gt; cloud-init.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: custom-cloud-init
+  namespace: my-namespace
+type: Opaque
+data:
+  userdata: IyBjbG91ZC1pbml0CnBhc3N3b3JkOiBjaGFuZ21lCmNoYW5nZVhwYXNz
+  runCmds:
+  - yum update -y
+  - systemctl restart network
+EOF
+
+oc create -f custom-template.yaml
+oc create -f cloud-init.yaml</code></pre>
+
+        <h2 id="cloud-init">Cloud-Init Configuration</h2>
+        <pre><code># cloud-init methods for VM configuration:
+# - cloudInitNoCloud: User data via cloud-init (NoCloud)
+# - cloudInitConfigDrive: User data via config drive (OpenStack format)
+# - cloudInitSecret: User data via Kubernetes secret
+
+# cloudInitNoCloud (most common)
+cat &gt; vm-cloud-init.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+      volumes:
+      - name: cloudinit
+        cloudInitNoCloud:
+          secretRef: my-cloud-init-data
+EOF
+
+# Cloud-init user data format
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-cloud-init-data
+  namespace: my-namespace
+type: Opaque
+data:
+  # Base64 encoded user data
+  userdata: |
+    #cloud-config
+    hostname: my-vm-hostname
+    fqdn: my-vm.example.com
+    users:
+    - name: admin
+      password: mypassword
+      chpasswd: true
+      lock_passwd: false
+      ssh_authorized_keys:
+      - ssh-rsa AAAAB3... mykey
+    package_update: true
+    packages:
+    - vim
+    - net-tools
+    - curl
+    runcmd:
+    - systemctl enable --now sshd
+    - yum install -y httpd
+    - systemctl enable --now httpd
+  # Base64 encoded meta data
+  metaData: IyBtZXRhLWRhdGEKSG9zdG5hbWU6IG15LXZtLWhvc3RuYW1lCg==
+EOF
+
+# cloudInitConfigDrive (OpenStack config drive)
+cat &gt; vm-config-drive.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+      volumes:
+      - name: cloudinit
+        cloudInitConfigDrive:
+          secretRef: my-config-drive-data
+EOF
+
+# Configure software repositories
+cat &gt; cloud-repos.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-repo-data
+type: Opaque
+data:
+  userdata: |
+    #cloud-config
+    package_repos:
+      rhel-9:
+        id: rhel-9-appstream
+        baseurl: https://mirror.stream.centos.org/9/AppStream/x86_64/os/
+    runcmd:
+    - subscription-manager register --username=${REG_USER} --password=${REG_PASS}
+    - subscription-manager attach --auto
+EOF</code></pre>
+
+        <h2 id="modifying-templates">Modifying Templates</h2>
+        <pre><code># Modify existing VM template
+oc patch vm my-template -n my-namespace --type merge -p '{"spec":{"instancetype":{"name":"u1.medium"}}}'
+
+# Change instance type
+oc patch vm my-template -n my-namespace --type merge -p '{"spec":{"instancetype":{"name":"cx1.2xlarge"}}}'
+
+# Enable dedicated resources
+cat &gt; vm-dedicated.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        resources:
+          requests:
+            cpu: 2
+            memory: 4Gi
+        cpu:
+          dedicatedCpuPlacement: true
+          requestLargePage: true
+EOF
+
+# Remove deprecated designation from template
+oc patch template my-template -n my-namespace -p '{"metadata":{"annotations":{"helm.sh/deprecated":"false"}}}' --type merge</code></pre>
+
+        <h2 id="windows-templates">Windows VM Templates</h2>
+        <pre><code># Windows VM with VirtIO drivers
+cat &gt; win-vm.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  preference:
+    name: windows.11
+  instancetype:
+    name: m1.large
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+          - name: virtio-cdrom
+            cdrom:
+              bus: sata
+          - name: virtio-drivers
+            cdrom:
+              bus: sata
+        resources:
+          requests:
+            memory: 4Gi
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: windows-disk
+      - name: virtio-cdrom
+        containerDisk:
+          image: container-native-virtualization/virtio-win
+      - name: virtio-drivers
+        containerDisk:
+          image: container-native-virtualization/virtio-win
+EOF
+
+# Install VirtIO drivers on Windows:
+# 1. Attach virtio-win CD as SATA device
+# 2. In Windows: File Explorer → guest-agent directory
+# 3. Run qemu-ga-x86_64.msi
+# 4. Install viostor, viomem, viorng, netkvm drivers</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 7</p></footer>
+</body>
+</html>

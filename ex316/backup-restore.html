@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OADP Backup and Restore — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / OADP Backup and Restore</div>
+        <h1>OADP Backup and Restore Virtual Machines</h1>
+        <p>Deploy the OADP Operator, back up and restore VMs with OADP and VM snapshots.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="oadp-overview">OpenShift APIs for Data Protection (OADP)</h2>
+        <pre><code># OADP (formerly Velero) provides backup and restore for Kubernetes resources
+# For VMs, backup is done via VM snapshots backed by CSI volume snapshots
+
+# Supported storage providers for snapshots:
+# - Red Hat OpenShift Data Foundation (ODF)
+# - Any cloud storage with CSI driver supporting Kubernetes Volume Snapshot API
+
+# Prerequisites for online snapshots:
+# - Install QEMU guest agent on VMs (not included with non-Red Hat OS images)
+# - QEMU guest agent quiesces VM file system for consistency
+# - Without QEMU guest agent: best-effort snapshot only</code></pre>
+
+        <h2 id="deploy-oadp">Deploying the OADP Operator</h2>
+        <pre><code># Install OADP Operator
+cat &gt; oadp-subscription.yaml &lt;&lt;EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: oadp-operator
+  namespace: openshift-adp
+spec:
+  channel: stable
+  name: oadp-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+
+oc apply -f oadp-subscription.yaml
+
+# Verify OADP installation
+oc get pods -n openshift-adp
+oc get csv -n openshift-adp
+
+# Create DataProtectionApplication (DPA)
+cat &gt; dpa.yaml &lt;&lt;EOF
+apiVersion: oadp.openshift.io/v1beta1
+kind: DataProtectionApplication
+metadata:
+  name: oadp-dpa
+  namespace: openshift-adp
+spec:
+  application:
+    namespaces:
+    - my-vm-namespace
+  backupPositions:
+    volumeSnapshots: true
+    application: true
+  configuration:
+    support:
+      supportImage: registry.redhat.io/openshift-virtualization-os9/oadp-support-utils-rhel9
+      supportDebugImage: registry.redhat.io/openshift-virtualization-os9/oadp-support-debug-rhel9
+    agent:
+      enabled: true
+      name: openshift-job-scheduler
+    velero:
+      featureFlags:
+      - EnableCSIFeatureFlag
+  credential:
+    name: oadp-credentials
+    key: cloud-credentials
+    bucket: velero-backups
+    info:
+      region: us-east-1
+      prov: AWS
+  backupLocations:
+  - name: default
+    default: true
+    velero:
+      provider: aws
+      config:
+        region: us-east-1
+      objectStorage:
+        bucket: velero-backups
+        prefix: velero/backups
+      snapshotLocations:
+      - region: us-east-1
+        default: true
+EOF
+
+oc apply -f dpa.yaml
+
+# Verify OADP deployment
+oc getdpa oadp-dpa -n openshift-adp</code></pre>
+
+        <h2 id="vm-snapshots">About VM Snapshots</h2>
+        <pre><code># VM Snapshot CRDs (Custom Resource Definitions):
+# 1. VirtualMachineSnapshot: User request to create a snapshot
+# 2. VirtualMachineSnapshotContent: Provisioned snapshot on the cluster
+# 3. VirtualMachineRestore: User request to restore from a snapshot
+
+# Snapshot requirements:
+# - Disks must be DataVolumes or PVCs
+# - Disks must belong to a storage class supporting CSI volume snapshots
+# - Disks must be bound to a PV and populated with a datasource
+# - vTPM device: cloning from snapshot is NOT supported
+
+# Snapshot states:
+# - InProgress: Snapshot operation in progress
+# - Succeeded: Snapshot completed successfully
+# - Failed: Snapshot operation failed
+
+# Online snapshots have 5-minute default timeout
+# Change with FailureDeadline attribute in minutes (m) or seconds (s)</code></pre>
+
+        <h2 id="create-snapshot">Creating VM Snapshots</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM → Snapshots tab
+# 3. Click Take Snapshot
+# 4. Enter snapshot name
+# 5. Verify disks included
+# 6. Click Save
+
+# Via CLI:
+cat &gt; vm-snapshot.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineSnapshot
+metadata:
+  name: my-vm-snapshot
+  namespace: my-namespace
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: my-vm
+EOF
+
+oc create -f vm-snapshot.yaml
+
+# Monitor snapshot progress
+oc wait virtualmachinesnapshot my-vm-snapshot --for condition=Ready -n my-namespace
+
+# Verify snapshot
+oc describe vmsnapshot my-vm-snapshot -n my-namespace
+
+# Expected output:
+# readyToUse: true
+# status.indications:
+#   - Online (if VM was running)
+#   - GuestAgent (if QEMU guest agent was running)
+#   - NoGuestAgent (if QEMU guest agent not running)
+# includedVolumes:
+#   - name: rootdisk
+#   - name: datadisk
+
+# Check included volumes
+oc describe vmsnapshot my-vm-snapshot | grep -A 10 includedVolumes</code></pre>
+
+        <h2 id="verify-snapshots">Verifying Online Snapshots</h2>
+        <pre><code># Snapshot indications (contextual info about online snapshots)
+# Not available for offline snapshots
+
+# Check snapshot indications
+oc get vmsnapshot my-vm-snapshot -n my-namespace -o jsonpath='{.status.indications}'
+# Expected: Online, GuestAgent/NoGuestAgent
+
+# View in web console:
+# VirtualMachineSnapshot → Status → status.indications
+
+# Indication meanings:
+# - Online: VM was running during snapshot
+# - GuestAgent: QEMU guest agent was running (quiesced)
+# - NoGuestAgent: QEMU guest agent not running (best-effort)</code></pre>
+
+        <h2 id="restore-snapshot">Restoring VMs from Snapshots</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select VM → Snapshots tab
+# 3. If running, click Options → Stop
+# 4. Select snapshot → Options → Restore VirtualMachine from snapshot
+# 5. Click Restore
+# Optional: Create new VM from snapshot
+
+# Via CLI:
+# Step 1: Create VirtualMachineRestore
+cat &gt; vm-restore.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineRestore
+metadata:
+  name: my-vm-restore
+  namespace: my-namespace
+spec:
+  source:
+    apiGroup: snapshot.kubevirt.io
+    kind: VirtualMachineSnapshotContent
+    name: my-vm-restore-content
+  virtualMachineName: my-vm
+EOF
+
+oc create -f vm-restore.yaml
+
+# Monitor restore progress
+oc wait virtualmachinerestore my-vm-restore --for condition=Ready -n my-namespace
+
+# Verify restore
+oc describe virtualmachinerestore my-vm-restore -n my-namespace
+
+# Create new VM from snapshot (alternative to restoring in place)
+cat &gt; vm-clone-snapshot.yaml &lt;&lt;EOF
+apiVersion: snapshot.kubevirt.io/v1beta1
+kind: VirtualMachineSnapshotContent
+metadata:
+  name: my-vm-restore-content
+  namespace: my-namespace
+EOF
+
+# Restore to new VM
+cat &gt; new-vm-from-snapshot.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm-restored
+  namespace: my-namespace
+spec:
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices: {}
+EOF</code></pre>
+
+        <h2 id="application-consistent">Application-Consistent Snapshots</h2>
+        <pre><code># Linux VMs: Freeze/thaw via QEMU guest agent
+# - QEMU GA freeze hooks freeze all filesystems
+# - Applications notified to quiesce state
+# - Filesystems frozen, snapshot taken, then thawed
+
+# Windows VMs: Freeze/thaw via Volume Shadow Copy Service (VSS)
+# - Applications register with VSS for notification
+# - Applications flush data before backup
+# - Thawed after backup completes
+
+# Verify quiesced snapshot:
+# 1. Ensure QEMU guest agent is installed and running
+# 2. Check snapshot indications for GuestAgent
+# 3. Without guest agent: best-effort snapshot only
+
+# On Linux VM:
+yum install -y qemu-guest-agent
+systemctl enable --now qemu-guest-agent
+
+# On Windows VM:
+# Install VirtIO drivers from virtio-win CD
+# Run qemu-ga-x86_64.msi from guest-agent directory</code></pre>
+
+        <h2 id="snapshot-lifecycle">Managing VM Snapshots</h2>
+        <pre><code># List all snapshots
+oc get virtualmachinesnapshots -n my-namespace
+
+# Delete a snapshot
+oc delete virtualmachinesnapshot my-vm-snapshot -n my-namespace
+
+# Check snapshot content
+oc describe vmsnapshotcontent my-vm-restore-content -n my-namespace
+
+# Snapshot with multiple VolumeSnapshotClasses:
+# If disk has more than one VolumeSnapshotClass, must specify one
+# Otherwise disk is excluded from snapshots list
+
+# Update snapshot spec (NOT supported - snapshots are immutable)
+# IMPORTANT: Snapshots cannot be changed after creation</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 6</p></footer>
+</body>
+</html>

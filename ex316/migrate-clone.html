@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrate and Clone VMs — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Migrate and Clone VMs</div>
+        <h1>Migrate and Clone Virtual Machines</h1>
+        <p>Import OVA images, prepare for cloning, clone VMs via console, clone disks using data volumes.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="import-ova">Importing OVA/OVA Images</h2>
+        <pre><code># Import Open Virtual Appliance (OVA) images
+# OVA images contain VM disk, metadata, and configuration
+
+# Method 1: Import via URL (creates DataVolume)
+cat &gt; dv-import.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: ova-import-dv
+  namespace: my-namespace
+spec:
+  source:
+    http:
+      url: https://example.com/ appliance.ova
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF
+
+oc apply -f dv-import.yaml
+
+# Monitor import
+oc get dv ova-import-dv -n my-namespace
+# Phases: Empty → Create → WaitForFirstConsumer → Bound → Succeeded
+
+# Method 2: Upload OVA image from local machine
+virtctl upload disk \
+  --data-volume=my-dv \
+  --size=10Gi \
+  --image-path=./appliance.ova \
+  -n my-namespace
+
+# Method 3: Via Web Console
+# 1. Navigate to Virtualization → Catalog
+# 2. Select template without boot source
+# 3. Click Customize VirtualMachine
+# 4. Storage → URL (creates PVC)
+# 5. Enter OVA URL and set disk size
+# 6. Click Create VirtualMachine</code></pre>
+
+        <h2 id="configure-imported-vm">Configuring Imported VM for External Access</h2>
+        <pre><code># After importing OVA, configure VM for access
+cat &gt; vm-imported.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: imported-vm
+  namespace: my-namespace
+spec:
+  instancetype:
+    name: u1.small
+  preference:
+    name: rhel.9
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: ova-import-dv
+EOF
+
+oc apply -f vm-imported.yaml
+
+# Expose for external access
+oc expose vm imported-vm --port=80 --name=vm-svc --type=NodePort
+
+# Verify VM running
+oc get vm imported-vm -n my-namespace
+virtctl console imported-vm -n my-namespace
+
+# Install QEMU guest agent (if not Red Hat image)
+# IMPORTANT: Must install on non-Red Hat OS images</code></pre>
+
+        <h2 id="prepare-clone">Preparing VMs for Cloning</h2>
+        <pre><code># Generalize VM image before cloning (remove system-specific data)
+# For RHEL VMs: use virt-sysprep via virtctl guestfs
+
+# Step 1: Stop the VM
+virtctl stop my-vm -n my-namespace
+
+# Step 2: Clone the VM (optional, to avoid data loss)
+virtctl clone vm --name cloned-vm --source my-vm -n my-namespace
+
+# Step 3: Get dataVolume name for root filesystem
+oc get vm my-vm -o jsonpath="{.spec.template.spec.volumes}{'\\n'}"
+# Output: [{"dataVolume":{"name":"<vm_volume>"},"name":"rootdisk"},...]
+
+# Step 4: Generalize image using virtctl
+virtctl generalize --name my-vm -n my-namespace
+
+# Step 5: Start VM
+virtctl start my-vm -n my-namespace</code></pre>
+
+        <h2 id="clone-vms">Cloning VMs</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select VM → Options → Clone VirtualMachine
+# 3. Enter new VM name
+# 4. Customize VM parameters (optional)
+# 5. Click Clone
+
+# Via CLI: Clone VM using virtctl
+virtctl clone vm \
+  --name cloned-vm \
+  --source my-vm \
+  -n my-namespace
+
+# Clone with custom instance type
+virtctl clone vm \
+  --name cloned-vm \
+  --source my-vm \
+  --instancetype u1.medium \
+  --preference rhel.9 \
+  -n my-namespace
+
+# Clone via manifest
+cat &gt; clone-dv.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: cloned-disk
+  namespace: my-namespace
+spec:
+  source:
+    pvc:
+      name: my-vm-disk
+      namespace: my-namespace
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF
+
+oc apply -f clone-dv.yaml
+
+# Clone entire VM via manifest
+cat &gt; vm-clone.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm-clone
+  namespace: my-namespace
+spec:
+  instancetype:
+    name: u1.small
+  preference:
+    name: rhel.9
+  runStrategy: Halted
+  template:
+    spec:
+      domain:
+        devices: {}
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: cloned-disk
+EOF
+
+# Clone VM via web console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select VM → Options → Clone VirtualMachine
+# 3. Enter new VM name and customize
+# 4. Click Clone</code></pre>
+
+        <h2 id="clone-disks">Cloning Disks via Data Volumes</h2>
+        <pre><code># Clone PVC-backed disks
+cat &gt; dv-clone.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: cloned-dv
+  namespace: my-namespace
+spec:
+  source:
+    pvc:
+      name: source-pvc
+      namespace: source-namespace
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: ocs-storagecluster-ceph-rbd
+EOF
+
+oc apply -f dv-clone.yaml
+
+# Clone using preallocation (better performance)
+cat &gt; dv-prealloc-clone.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: preallocated-clone
+  namespace: my-namespace
+  annotations:
+    cdi.kubevirt.io/storage.preallocation: "true"
+spec:
+  source:
+    pvc:
+      name: source-pvc
+      namespace: my-namespace
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF
+
+# Clone PVC directly
+oc get pvc source-pvc -n my-namespace -o json | \
+  jq '.spec | del(.accessModes,.resources.requests.storage)' > pvc-clone.yaml
+
+# Configure RBAC for cloning between namespaces
+cat &gt; clone-rbac.yaml &lt;&lt;EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: data-volume-clone-role
+subjects:
+- kind: User
+  name: clone-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+# Monitor clone progress
+oc get dv cloned-dv -n my-namespace</code></pre>
+
+        <h2 id="upload-iso">Uploading ISO Images</h2>
+        <pre><code># Upload ISO images for CD-ROM or boot
+virtctl upload iso \
+  --data-volume=my-iso-dv \
+  --size=2Gi \
+  --image-path=./install.iso \
+  -n my-namespace
+
+# Create ISO DataVolume
+cat &gt; iso-dv.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: boot-iso
+  namespace: my-namespace
+spec:
+  source:
+    http:
+      url: https://example.com/rhel9.iso
+  storage:
+    resources:
+      requests:
+        storage: 2Gi
+EOF
+
+# Attach ISO to VM as CD-ROM
+cat &gt; vm-with-iso.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: cdrom
+            cdrom:
+              bus: sata
+              readonly: true
+          - name: rootdisk
+            disk:
+              bus: virtio
+      volumes:
+      - name: cdrom
+        persistentVolumeClaim:
+          claimName: boot-iso
+      - name: rootdisk
+        persistentVolumeClaim:
+          claimName: root-pvc
+EOF</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 9</p></footer>
+</body>
+</html>

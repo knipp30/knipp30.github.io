@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Balancing — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Load Balancing</div>
+        <h1>Manage VM Load Balancing</h1>
+        <p>Load balancing with Kubernetes networking, NodePort services, customized routes.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="vm-services">VM Load Balancing with Services</h2>
+        <pre><code># Expose VMs using Kubernetes services for load balancing
+
+# NodePort service (external via node IP:port)
+cat &gt; vm-nodeport-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-nodeport
+  namespace: my-namespace
+  annotations:
+    kubevirt.io/managedVirtualNetwork: default
+spec:
+  type: NodePort
+  selector:
+    kubevirt.io/name: my-vm
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30080
+    protocol: TCP
+EOF
+
+oc apply -f vm-nodeport-service.yaml
+
+# LoadBalancer service (cloud provider managed)
+cat &gt; vm-lb-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-lb
+  namespace: my-namespace
+  annotations:
+    kubevirt.io/managedVirtualNetwork: default
+spec:
+  type: LoadBalancer
+  selector:
+    kubevirt.io/name: my-vm
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+
+# Access external IP
+oc get svc my-vm-lb -n my-namespace
+# Get the EXTERNAL-IP address</code></pre>
+
+        <h2 id="nodeport-config">NodePort Service Configuration</h2>
+        <pre><code># Create NodePort service via CLI
+oc expose vm my-vm --port=80 --name=my-vm-svc --type=NodePort -n my-namespace
+
+# Verify service
+oc get svc my-vm-svc -n my-namespace
+oc get endpoints -n my-namespace
+
+# Access via any node IP on NodePort
+# http://&lt;node-ip&gt;:&lt;node-port&gt;
+
+# Multiple ports
+cat &gt; multiport-svc.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-multiport
+  namespace: my-namespace
+spec:
+  type: NodePort
+  selector:
+    kubevirt.io/name: my-vm
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30080
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    nodePort: 30443
+    protocol: TCP
+EOF</code></pre>
+
+        <h2 id="custom-routes">Customized Routes</h2>
+        <pre><code># Create custom routes to expose VM services
+cat &gt; vm-route.yaml &lt;&lt;EOF
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-vm-route
+  namespace: my-namespace
+spec:
+  host: my-vm.example.com
+  to:
+    kind: Service
+    name: my-vm-svc
+    weight: 100
+  port:
+    targetPort: 80
+  tls:
+    termination: reencrypt
+    key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+EOF
+
+oc apply -f vm-route.yaml
+
+# Custom routes for cdi-uploadproxy
+oc create route reencrypt cdi-uploadproxy \
+  --service=cdi-uploadproxy \
+  --hostname=upload.example.com \
+  -n openshift-cdi
+
+# Route with edge termination
+cat &gt; edge-route.yaml &lt;&lt;EOF
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-vm-edge-route
+  namespace: my-namespace
+spec:
+  host: my-vm.example.com
+  to:
+    kind: Service
+    name: my-vm-svc
+  tls:
+    termination: edge
+EOF</code></pre>
+
+        <h2 id="enable-loadbalancer">Enabling Load Balancer Service Creation</h2>
+        <pre><code># Enable load balancer service creation via web console
+# Virtualization → Overview → Settings → Cluster → Enable load balancer
+
+# Or via CLI
+cat &gt; hc-enable-lb.yaml &lt;&lt;EOF
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  configuration:
+    loadBalancer:
+      enabled: true
+EOF
+
+oc apply -f hc-enable-lb.yaml</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 12</p></footer>
+</body>
+</html>

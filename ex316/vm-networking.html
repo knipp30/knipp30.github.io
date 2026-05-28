@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Networking — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / VM Networking</div>
+        <h1>Configure Kubernetes Networking for VMs</h1>
+        <p>Kubernetes SDN, network policies, external access, user-defined networks, ClusterIP services.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="networking-overview">Networking Overview</h2>
+        <pre><code># Key networking concepts
+# - Multus CNI: Secondary network plug-in for VMs
+# - Default pod network: OVN-Kubernetes primary SDN
+# - User-defined networks (UDN): Primary or secondary networks for VMs
+# - IPv6: Single-stack IPv6 NOT supported (dual-stack supported)
+# - SR-IOV: For high-performance networking
+# - Linux bridge: For external access via VLAN
+
+# Layer2 topology recommended on public clouds for UDNs
+# IPAM (IP address management) in NAD for VMs is NOT supported</code></pre>
+
+        <h2 id="default-pod-network">Connecting VMs to Default Pod Network</h2>
+        <pre><code># Masquerade mode (default): VM has outbound NAT, can access external network
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - name: default
+            masquerade: {}
+            networkName: default
+      networks:
+      - name: default
+        pod: {}
+
+# IPv4 with dual-stack support
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-dualstack-vm
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - name: default
+            masquerade: {}
+        networkInterface: 192.168.1.1
+      networks:
+      - name: default
+        pod: {}
+      # Cloud-init for IPv6
+      initContainers:
+      - name: ipv6-setup
+        image: redhat/ovirt-guest-agent</code></pre>
+
+        <h2 id="primary-udn">Configuring Primary User-Defined Network</h2>
+        <pre><code># Create namespace for UDNs (web console)
+# 1. Navigate to Administration → Namespaces
+# 2. Create project
+
+# Create primary UDN by CLI
+cat &gt; nad-primary.yaml &lt;&lt;EOF
+apiVersion: k8s.cni.cncf.io/v1beta1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: primary-network
+  namespace: my-namespace
+spec:
+  config: '{
+    "cniVersion": "0.3.1",
+    "type": "macvtap",
+    "master": "eth0",
+    "mode": "bridge",
+    "ipam": {}
+  }'
+EOF
+
+oc apply -f nad-primary.yaml
+
+# Attach VM to primary UDN
+cat &gt; vm-primary-udn.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm-udn
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - name: udn
+            primaryIP: 10.0.0.1
+            multus:
+              network: my-namespace/primary-network
+      networks:
+      - name: udn
+        multus:
+          networkName: my-namespace/primary-network
+EOF</code></pre>
+
+        <h2 id="vm-services">Exposing VMs with Services (ClusterIP, NodePort, LoadBalancer)</h2>
+        <pre><code># ClusterIP service (default, internal only)
+cat &gt; vm-clusterip-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-service
+  namespace: my-namespace
+  annotations:
+    kubevirt.io/managedVirtualNetwork: default
+spec:
+  type: ClusterIP
+  selector:
+    kubevirt.io/managedVirtualNetwork: default
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+
+oc apply -f vm-clusterip-service.yaml
+
+# NodePort service (external access via node IP)
+cat &gt; vm-nodeport-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-nodeport
+  namespace: my-namespace
+spec:
+  type: NodePort
+  selector:
+    kubevirt.io/managedVirtualNetwork: default
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080
+    protocol: TCP
+EOF
+
+# LoadBalancer service (cloud provider external LB)
+cat &gt; vm-lb-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-lb
+  namespace: my-namespace
+spec:
+  type: LoadBalancer
+  selector:
+    kubevirt.io/managedVirtualNetwork: default
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+
+# Access VM service
+oc get svc my-vm-service -n my-namespace
+oc get endpoints -n my-namespace
+
+# Dual-stack services
+cat &gt; vm-dualstack-service.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-dualstack
+  namespace: my-namespace
+spec:
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: PreferDualStack
+  type: ClusterIP
+  selector:
+    kubevirt.io/managedVirtualNetwork: default
+  ports:
+  - port: 80
+    protocol: TCP
+EOF</code></pre>
+
+        <h2 id="headless-service">Headless Service (Internal FQDN)</h2>
+        <pre><code># Create headless service for internal DNS resolution
+cat &gt; headless-svc.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-vm-headless
+  namespace: my-namespace
+spec:
+  clusterIP: None  # Headless - no IP assigned
+  selector:
+    kubevirt.io/name: my-vm
+EOF
+
+# Map VM to headless service
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+spec:
+  template:
+    spec:
+      metadata:
+        labels:
+          kubevirt.io/name: my-vm
+      hostname: my-vm-host
+      subdomain: my-vm-headless
+      # DNS domain: my-vm-host.my-vm-headless.my-namespace.svc.cluster.local</code></pre>
+
+        <h2 id="network-policies">Network Policies for VMs</h2>
+        <pre><code># Apply Kubernetes NetworkPolicy to restrict VM traffic
+cat &gt; network-policy.yaml &lt;&lt;EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vm-network-policy
+  namespace: my-namespace
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io/name: my-vm
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          project: trusted
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          role: database
+    ports:
+    - protocol: TCP
+      port: 5432
+EOF
+
+oc apply -f network-policy.yaml
+
+# Allow all ingress
+cat &gt; allow-all-ingress.yaml &lt;&lt;EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-ingress
+  namespace: my-namespace
+spec:
+  podSelector: {}
+  ingress:
+  - {}
+  policyTypes:
+  - Ingress
+EOF
+
+oc apply -f allow-all-ingress.yaml</code></pre>
+
+        <h2 id="external-access">External Access for VMs</h2>
+        <pre><code># Via NodePort service
+oc expose vm my-vm --port=80 --name=my-vm-svc --type=NodePort
+
+# Via LoadBalancer service (cloud platforms)
+oc expose vm my-vm --port=80 --name=my-vm-svc --type=LoadBalancer
+
+# Via route (for web services)
+# Create Route for the Service
+cat &gt; vm-route.yaml &lt;&lt;EOF
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: my-vm-route
+  namespace: my-namespace
+spec:
+  host: my-vm.example.com
+  to:
+    kind: Service
+    name: my-vm-svc
+  port:
+    targetPort: 80
+EOF
+
+# Expose additional routes for cdi-uploadproxy
+oc create route reencrypt cdi-uploadproxy \
+  --service=cdi-uploadproxy \
+  --hostname=upload.example.com \
+  -n openshift-cdi</code></pre>
+
+        <h2 id="ssh-access">SSH Access to VMs</h2>
+        <pre><code># Configure SSH access to VMs
+virtctl ssh &lt;user&gt;@&lt;vm_name&gt; -n &lt;namespace&gt;
+
+# SSH configuration in VM manifest
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          interfaces:
+          - masquerade: {}
+            name: default
+      networks:
+      - name: default
+        pod: {}</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 3</p></footer>
+</body>
+</html>

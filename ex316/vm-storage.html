@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Storage — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / VM Storage</div>
+        <h1>Configure Kubernetes Storage for VMs</h1>
+        <p>Persistent storage, disk attach/detach, external storage via Multus, data volumes, CDI.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="storage-overview">Storage Configuration Overview</h2>
+        <pre><code># Mandatory tasks:
+# - Configure a default storage class
+# - Configure storage profiles for recognized providers
+
+# Optional tasks:
+# - Reserve additional PVC space for file system overhead
+# - Configure local storage via HPP
+# - Configure RBAC for cloning data volumes between namespaces
+
+# Storage access modes:
+# - ReadWriteOnce (RWO): Single node (NOT supported for live migration)
+# - ReadWriteMany (RWX): Multiple nodes (REQUIRED for live migration)
+# - ReadOnlyMany: Multiple read-only nodes
+
+# Volume modes:
+# - Block: Direct disk access (recommended, better performance)
+# - Filesystem: File system layer + disk image (more layers, slower)
+
+# IMPORTANT: RWX + Block is recommended for best performance and live migration
+
+# Mark storage class as default for virtualization
+# Set annotation: storageclass.kubevirt.io/is-default-virt-class: "true"</code></pre>
+
+        <h2 id="storage-profiles">Configuring Storage Profiles</h2>
+        <pre><code># CDI recognizes storage providers automatically
+# For unrecognized providers, configure storage profiles manually
+
+# Check storage profiles
+oc get storageprofile
+
+# Edit storage profile for unrecognized provider
+oc edit storageprofile &lt;profile-name&gt;
+
+# Customizing storage profile
+cat &gt; storage-profile-edit.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: StorageProfile
+metadata:
+  name: my-storage-class
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteMany
+    volumeMode: Block
+EOF
+
+# For ODF with Ceph RBD (recommended for OCP Virtualization)
+# Use 'ocs-storagecluster-ceph-rbd' storage class with VolumeMode: Block
+# RBD block mode is more efficient than CephFS or RBD filesystem-mode PVCs
+
+# WARNING: If disk has more than one VolumeSnapshotClass, 
+# you must specify one before creating snapshots
+
+# Custom storage profile parameters
+cat &gt; custom-storage.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: StorageProfile
+metadata:
+  name: my-custom-class
+spec:
+  pvc:
+    accessModes: ["ReadWriteMany"]
+    volumeMode: Block
+    storage:
+      accessModes: ["ReadWriteMany"]
+      resources:
+        requests:
+          storage: 10Gi
+EOF</code></pre>
+
+        <h2 id="cdi">Containerized Data Importer (CDI)</h2>
+        <pre><code># CDI manages VM disk imports, uploads, and cloning
+
+# Override CDI resource requests for namespaces with quotas
+cat &gt; cdi-override.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: CDI
+metadata:
+  name: cdi
+spec:
+  config:
+    featureGates: {}
+    resourceRequests:
+      importer:
+        cpu: "1"
+        memory: "1Gi"
+EOF
+
+# Configure CDI scratch space
+# CDI provisions scratch PVC equal to size of destination DV during import/upload
+
+# Enable preallocation for data volumes (improves write performance)
+cat &gt; dv-prealloc.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: preallocated-dv
+  namespace: my-namespace
+  annotations:
+    cdi.kubevirt.io/storage.preallocation: "true"
+spec:
+  source:
+    http:
+      url: https://example.com/image.qcow2
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF
+
+# Manage data volume annotations
+cat &gt; dv-annotations.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: annotated-dv
+  namespace: my-namespace
+  annotations:
+    cdi.kubevirt.io/storage.overwriteable: "true"
+    cdi.kubevirt.io/storage.forceBind: "true"
+spec:
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+EOF</code></pre>
+
+        <h2 id="data-volumes">Data Volumes (DVs)</h2>
+        <pre><code># DataVolume objects manage VM disk storage
+
+# Create DataVolume from URL
+cat &gt; dv-http.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: my-image-dv
+  namespace: my-namespace
+spec:
+  source:
+    http:
+      url: https://example.com/rhel9.qcow2
+  storage:
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: ocs-storagecluster-ceph-rbd
+EOF
+
+# Create DataVolume for upload
+cat &gt; dv-upload.yaml &lt;&lt;EOF
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: my-upload-dv
+  namespace: my-namespace
+spec:
+  source:
+    blank: {}
+  storage:
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: ocs-storagecluster-ceph-rbd
+EOF
+
+# Monitor DataVolume status
+oc get dv my-image-dv -n my-namespace
+# Expected phases: Empty, Create, WaitForFirstConsumer, Bound, Succeeded
+
+# Upload image to DataVolume
+virtctl upload disk \
+  --data-volume=my-upload-dv \
+  --size=20Gi \
+  --image-path=./my-image.qcow2 \
+  -n my-namespace</code></pre>
+
+        <h2 id="disk-attach">Attaching Disks to VMs</h2>
+        <pre><code># Attach additional disk to running VM
+cat &gt; vm-with-disk.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm-with-disk
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+          - name: datadisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+      volumes:
+      - name: rootdisk
+        persistentVolumeClaim:
+          claimName: my-vm-pvc
+      - name: datadisk
+        persistentVolumeClaim:
+          claimName: additional-disk
+EOF
+
+# Hot-plug disk to running VM
+oc patch vm my-vm -n my-namespace --type merge -p '{"spec":{"template":{"spec":{"volumes":[{"name":"hotplug-disk","persistentVolumeClaim":{"claimName":"hotplug-pvc"}}]}}}}'
+
+# Hot-plug device to running VM
+oc patch vm my-vm -n my-namespace --type merge -p '{"spec":{"template":{"spec":{"domain":{"devices":{"gpus":[{"name":"gpu1","deviceName":"nvidia.com/GPU"}]}}}}}}'
+
+# Create and attach disk
+cat &gt; add-disk.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: extra-disk
+  namespace: my-namespace
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: ocs-storagecluster-ceph-rbd
+EOF
+
+# Attach via virtctl
+virtctl add-volume disk-name &lt;vm_name&gt; -n &lt;namespace&gt;</code></pre>
+
+        <h2 id="disk-detach">Detaching Disks from VMs</h2>
+        <pre><code># Hot-unplug volume from running VM
+oc patch vm my-vm -n my-namespace --type merge -p '{"spec":{"template":{"spec":{"volumes":[{"name":"disk-to-remove","persistentVolumeClaim":{"claimName":"my-pvc"}}],"volumeMounts":[{"name":"disk-to-remove","mountPath":"/mnt/data"}]}}}}'
+
+# Hot-unplug device from running VM
+virtctl remove-device device-name &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# Remove volume from VM
+virtctl remove-volume volume-name &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# Delete PVC after detach (ensure no active references)
+oc delete pvc extra-disk -n my-namespace</code></pre>
+
+        <h2 id="external-storage">External Storage via Multus</h2>
+        <pre><code># Connect VMs to external storage using Multus
+
+# Storage class for external storage
+cat &gt; external-storage-class.yaml &lt;&lt;EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: external-storage
+  annotations:
+    storageclass.kubevirt.io/is-default-virt-class: "true"
+provisioner: external.storage.provisioner
+parameters:
+  storageType: external
+  storageBackend: nfs
+  server: "192.168.1.100"
+  share: "/exports/vm-storage"
+EOF
+
+# PVC for external storage
+cat &gt; external-pvc.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: external-vm-disk
+  namespace: my-namespace
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: external-storage
+EOF</code></pre>
+
+        <h2 id="local-storage">Local Storage with Hostpath Provisioner</h2>
+        <pre><code># HPP is automatically installed with OpenShift Virtualization
+# Configures local storage for VMs on worker nodes
+
+# Create HostPathProvisioner
+cat &gt; hpp.yaml &lt;&lt;EOF
+apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
+kind: HostPathProvisioner
+metadata:
+  name: hostpath-provisioner
+  namespace: openshift-cnv
+spec:
+  unprivileged: true
+  safeToEvict: true
+  storage:
+    images:
+    - name: default-storage
+      pathTemplate: "/var/run/kubevirt-storage"
+      capacity: 100Gi
+EOF
+
+oc apply -f hpp.yaml
+
+# Storage class for HPP
+cat &gt; hpp-sc.yaml &lt;&lt;EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hostpath-provisioner
+  annotations:
+    storageclass.kubevirt.io/is-default-virt-class: "true"
+provisioner: hostpathprovisioner.storage.kubevirt.io
+EOF</code></pre>
+
+        <h2 id="boot-source-updates">Boot Source Updates</h2>
+        <pre><code># Manage automatic boot source updates
+# CDI imports, polls, and updates images for cloning
+
+# Enable auto-update for custom boot sources
+cat &gt; boot-source-ns.yaml &lt;&lt;EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: custom-boot-images
+  labels:
+    boot-source-updates: "true"
+EOF</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 5</p></footer>
+</body>
+</html>

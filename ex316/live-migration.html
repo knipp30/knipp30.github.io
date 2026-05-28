@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Migrations — EX316</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav"><div class="nav-inner"><a href="../index.html" class="logo"><span class="logo-icon">⚙️</span> Red Hat Learning Hub</a></div></nav>
+    <div class="topic-hero"><div class="container">
+        <div class="breadcrumb"><a href="../index.html">Home</a> / <a href="index.html">EX316</a> / Live Migrations</div>
+        <h1>Perform Virtual Machine Live Migrations</h1>
+        <p>Migration limitations, node affinity, start/monitor/cancel VM migrations.</p>
+    </div></div>
+    <div class="topic-layout"><div class="topic-content">
+
+        <h2 id="migration-overview">Live Migration Overview</h2>
+        <pre><code># Live migration requirements:
+# - Shared storage with ReadWriteMany (RWX) access mode
+# - Sufficient RAM and network bandwidth
+# - Dedicated Multus network for live migration (highly recommended)
+# - Nodes must support the VM's CPU host model (if configured)
+# - Default: max 5 parallel migrations in cluster
+
+# Live migration NOT supported with:
+# - RWO (ReadWriteOnce) storage volume
+# - GPU passthrough (PCI devices)
+# - SR-IOV devices
+# - TPM devices
+# Set evictionStrategy: None for non-migratable VMs</code></pre>
+
+        <h2 id="migration-limitations">Live Migration Limitations</h2>
+        <pre><code># Cannot live migrate with:
+# - ReadWriteOnce (RWO) access mode storage
+# - Passthrough features (GPUs)
+# - Host model CPU on nodes with different CPUs
+# - Single-node OpenShift
+# - Non-migratable VMs
+
+# Non-migratable VMs should set evictionStrategy:
+# - LiveMigrateIfPossible: Does not block upgrade
+# - None: Shuts down during node maintenance
+
+# Memory overhead calculation for live migration capacity:
+# Required spare memory = Max parallel drains × Highest total VM memory request per node
+# Default parallel migrations: 5</code></pre>
+
+        <h2 id="node-affinity">Node Affinity for VMs</h2>
+        <pre><code># Configure required node affinity rule
+cat &gt; vm-affinity.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-affinity-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/compute
+                operator: In
+                values:
+                - "true"
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - zone-a
+EOF
+
+oc apply -f vm-affinity.yaml
+
+# Node selector (simpler)
+cat &gt; vm-node-selector.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-node-selector-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/compute: "true"
+EOF
+
+oc apply -f vm-node-selector.yaml</code></pre>
+
+        <h2 id="start-migration">Starting Migrations</h2>
+        <pre><code># Start a live migration via CLI
+virtctl migrate &lt;vm_name&gt; -n &lt;namespace&gt;
+
+# Start migration for VM with migration config
+cat &gt; migrate-config.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+spec:
+  template:
+    spec:
+      migrationStrategy: Migrate
+      terminationGracePeriodSeconds: 180
+EOF
+
+# Set eviction strategy for migratable VMs
+cat &gt; vm-eviction.yaml &lt;&lt;EOF
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      evictionStrategy: LiveMigrate
+EOF
+
+oc apply -f vm-eviction.yaml
+
+# Restart VM to apply eviction strategy changes
+virtctl restart my-vm -n my-namespace</code></pre>
+
+        <h2 id="monitor-migration">Monitoring Migrations</h2>
+        <pre><code># Check migration status
+oc get vmim -n my-namespace
+
+# VMIM phases:
+# - New: Migration request received
+# - Pending: Migration waiting to start
+# - Preparing: Pre-migration checks running
+# - Running: Migration in progress
+# - Succeeded: Migration completed successfully
+# - Failed: Migration failed
+# - Canceled: Migration was canceled
+
+# Detailed migration status
+oc get vmim &lt;migration_name&gt; -n my-namespace -o yaml
+
+# Monitor migration progress
+oc describe vmim &lt;migration_name&gt; -n my-namespace
+
+# Migration events
+oc get events -n my-namespace --field-selector reason=MigrationTargetFree
+
+# Check VM status during migration
+oc get vm my-vm -n my-namespace
+# VMI phase should show Migrated during migration
+
+# Migration configuration (cluster-wide)
+oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
+# Set migration parameters:
+#   spec.configuration.migrationConfiguration:</code></pre>
+
+        <h2 id="cancel-migration">Canceling Migrations</h2>
+        <pre><code># Cancel a running migration
+oc patch vmim &lt;migration_name&gt; -n my-namespace --type merge \
+  -p '{"spec":{"abortRequested":true}}'
+
+# Verify cancellation
+oc get vmim &lt;migration_name&gt; -n my-namespace
+# Phase should change to Canceled
+
+# If migration is stuck, check for blockers
+oc get vmim -n my-namespace -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\n"}{end}'</code></pre>
+
+        <h2 id="cluster-eviction">Cluster Eviction Strategy</h2>
+        <pre><code># Configure cluster-wide eviction strategy
+oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
+
+# Cluster eviction strategies:
+# LiveMigrate:     Prioritizes workload continuity (default multi-node)
+#                  - Interrupts workflow: No
+#                  - Blocks upgrades: Yes
+# LiveMigrateIfPossible: Prioritizes upgrades (does not block)
+#                        - Interrupts workflow: Yes
+#                        - Blocks upgrades: No
+# None:            Shuts down VMs
+#                  - Default for single-node OpenShift
+
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-cnv
+spec:
+  evictionStrategy: LiveMigrate
+  configuration:
+    migrationConfiguration:
+      batchEvictionSize: 5
+      batchEvictionInterval: 1m
+      parallelOutboundMigrations: 5
+      nodeDrainTaintKeys:
+      - kubevirt.io/drain</code></pre>
+
+    </div></div></div>
+    <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 10</p></footer>
+</body>
+</html>
