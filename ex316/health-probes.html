@@ -188,31 +188,6 @@ oc get vmi my-vm -n my-namespace -o jsonpath='{.status.phase}'
 # 3. Configure default probe settings
 # 4. Click Save
 
-# Via Web Console:
-# 1. Navigate to Virtualization → VirtualMachines
-# 2. Select a VM → Health tab
-# 3. To configure liveness probe:
-#    a. Click "Edit VM"
-#    b. Go to Policies → Liveness Probe
-#    c. Select probe type: TCP Socket, HTTP GET, or Exec
-#    d. Configure port, path, or command
-#    e. Set initialDelaySeconds, periodSeconds, timeoutSeconds
-#    f. Click Save
-# 4. For guest agent ping probe:
-#    a. Ensure guest agent is enabled (Edit VM → Configuration → Guest Agent)
-#    b. Liveness probe will auto-detect ping capability
-# 5. For watchdog:
-#    a. Edit VM → Configuration → Watchdog
-#    b. Select device type (i6300esb)
-#    c. Choose action: reset, powerOff, shutdown, pause
-#    d. Click Save
-
-# Via Web Console (cluster-wide):
-# 1. Navigate to Virtualization → Settings → Cluster
-# 2. Scroll to "Health Probes" section
-# 3. Configure default probe settings
-# 4. Click Save
-
 # Monitoring via web console:
 # Virtualization → Overview → Status card
 # Shows overall health based on alerts and conditions</code></pre>

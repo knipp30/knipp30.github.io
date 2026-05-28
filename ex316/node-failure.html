@@ -44,7 +44,7 @@ EOF
 
 # Edit existing VM
 oc edit vm my-vm -n my-namespace
-# Update: spec.template.spec.evictionStrategy: LiveMigrateIfPossible
+# Update: spec.evictionStrategy: LiveMigrateIfPossible
 
 # Restart VM to apply changes
 virtctl restart my-vm -n my-namespace
