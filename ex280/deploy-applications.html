@@ -75,76 +75,9 @@ parameters:
   required: false
 EOF</code></pre>
 
-        <h2 id="helm-charts">Deploying from Helm Charts</h2>
-        <pre><code># Install Helm (if not available)
-sudo dnf install -y helm
-
-# Add a Helm repository
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
-# Search for charts
-helm search repo nginx
-
-# Install a Helm chart
-helm install my-app bitnami/nginx --namespace my-namespace --create-namespace
-
-# Install with custom values
-helm install my-app bitnami/nginx -f values.yaml --namespace my-namespace
-
-# Install from a local chart
-helm install my-app ./my-chart --namespace my-namespace
-
-# List Helm releases
-helm list -n my-namespace
-helm list --all-namespaces
-
-# View Helm release status
-helm status my-app -n my-namespace
-
-# View Helm release history
-helm history my-app -n my-namespace
-
-# Upgrade a Helm release
-helm upgrade my-app bitnami/nginx -f values.yaml
-
-# Rollback a Helm release
-helm rollback my-app 1 -n my-namespace
-
-# Uninstall a Helm release
-helm uninstall my-app -n my-namespace
-
-# Generate Kubernetes manifests from Helm (without installing)
-helm template my-app bitnami/nginx -f values.yaml &gt; manifests.yaml
-
-# Lint a Helm chart
-helm lint ./my-chart
-
-# Package a Helm chart
-helm package ./my-chart
-
-# Create Chart.yaml
-cat &gt; Chart.yaml &lt;&lt;'EOF'
-apiVersion: v2
-name: my-chart
-description: A custom Helm chart
-version: 1.0.0
-appVersion: "1.0"
-EOF
-
-# Create values.yaml
-cat &gt; values.yaml &lt;&lt;'EOF'
-replicaCount: 1
-
-image:
-  repository: nginx
-  tag: "1.21"
-  pullPolicy: IfNotPresent
-
-service:
-  type: ClusterIP
-  port: 80
-EOF</code></pre>
+        <!-- NOTE: Helm charts are not part of EX280 exam objectives.
+             EX280 focuses on oc/kubectl native deployment methods only.
+             Helm content removed to avoid misleading exam candidates. -->
 
         <h2 id="manage-deployments">Managing Application Deployments</h2>
         <pre><code># Scale a deployment
@@ -430,7 +363,7 @@ oc create route edge --service=my-app-svc --hostname=myapp.example.com</code></p
         </div>
     </div>
     <aside class="toc"><h4>On this page</h4><ul>
-        <li><a href="#templates">Templates</a></li><li><a href="#helm-charts">Helm Charts</a></li><li><a href="#manage-deployments">Deployments</a></li><li><a href="#replica-sets">Replica Sets</a></li><li><a href="#labels">Labels and Selectors</a></li><li><a href="#services">Services</a></li><li><a href="#external-access">External Access</a></li>
+        <li><a href="#templates">Templates</a></li><li><a href="#manage-deployments">Deployments</a></li><li><a href="#replica-sets">Replica Sets</a></li><li><a href="#labels">Labels and Selectors</a></li><li><a href="#services">Services</a></li><li><a href="#external-access">External Access</a></li>
     </ul></aside></div>
     <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
 </body>
