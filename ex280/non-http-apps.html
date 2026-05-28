@@ -206,7 +206,11 @@ EOF
 oc get svc tcp-service udp-service mixed-service -n my-project
 oc get endpoints tcp-service -n my-project</code></pre>
 
-        <h2 id="streaming">Stream Protocols (SCTP)</h2>
+        <h2 id="streaming">SCTP Protocol Support</h2>
+        <div class="callout">
+            <div class="callout-title">⚠️ SCTP NOT Supported</div>
+            <p><strong>SCTP is NOT supported</strong> by OpenShift's default SDNs (OpenShiftSDN or OVN-Kubernetes). Services only support TCP and UDP protocols.</p>
+        </div>
         <pre><code># Note: SCTP protocol is NOT supported by OpenShift's default SDNs (OpenShiftSDN or OVN-Kubernetes)
 # For SCTP workloads, you need to configure a custom network plugin or use a different approach
 # OpenShift 4.x SDNs only support TCP and UDP protocols for Services
@@ -267,7 +271,7 @@ nc -zv &lt;node-ip&gt; 30443</code></pre>
         </div>
     </div>
     <aside class="toc"><h4>On this page</h4><ul>
-        <li><a href="#overview">Overview</a></li><li><a href="#load-balancer">Load Balancer Service</a></li><li><a href="#external-access">External Access</a></li><li><a href="#tcp-services">TCP/UDP Services</a></li><li><a href="#streaming">Stream Protocols</a></li><li><a href="#non-http-tls">Non-HTTP with TLS</a></li>
+        <li><a href="#overview">Overview</a></li><li><a href="#load-balancer">Load Balancer Service</a></li><li><a href="#external-access">External Access</a></li><li><a href="#tcp-services">TCP/UDP Services</a></li><li><a href="#streaming">SCTP</a></li><li><a href="#non-http-tls">Non-HTTP with TLS</a></li>
     </ul></aside></div>
     <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
 </body>

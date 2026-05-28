@@ -18,7 +18,7 @@
         <h2 id="overview">Overview</h2>
         <p>Resource quotas and limits allow cluster administrators to control resource consumption per project while enabling developers to self-service their workloads.</p>
 
-        <h2 id="cluster-quotas">Configuring Resource Quotas</h2>
+        <h2 id="namespace-quotas">Configuring Resource Quotas</h2>
         <pre><code># ResourceQuota is namespace-scoped (not cluster-wide)
 cat &gt; resourcequota.yaml &lt;&lt;'EOF'
 apiVersion: v1
@@ -338,7 +338,7 @@ oc apply -f default-limits.yaml -n my-project</code></pre>
         </div>
     </div>
     <aside class="toc"><h4>On this page</h4><ul>
-        <li><a href="#overview">Overview</a></li><li><a href="#cluster-quotas">Cluster Quotas</a></li><li><a href="#project-quotas">Project Quotas</a></li><li><a href="#requirements">Resource Requirements</a></li><li><a href="#limit-ranges">Limit Ranges</a></li><li><a href="#project-templates">Project Templates</a></li><li><a href="#quotas-summary">Summary</a></li>
+        <li><a href="#overview">Overview</a></li><li><a href="#namespace-quotas">Namespace Quotas</a></li><li><a href="#project-quotas">Project Quotas</a></li><li><a href="#requirements">Resource Requirements</a></li><li><a href="#limit-ranges">Limit Ranges</a></li><li><a href="#project-templates">Project Templates</a></li><li><a href="#quotas-summary">Summary</a></li>
     </ul></aside></div>
     <footer><p>EX280 OpenShift 4.18 · Red Hat Learning Hub</p></footer>
 </body>

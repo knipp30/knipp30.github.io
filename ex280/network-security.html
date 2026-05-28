@@ -26,7 +26,7 @@ oc get network.operator cluster -o yaml
 oc get network.operator cluster -o jsonpath='{.status}'
 
 # Network types
-#   OVN-Kubernetes: Recommended and default SDN for OCP 4.x
+#   OVN-Kubernetes: Recommended and default SDN for OCP 4.13+
 
 # Check SDN version
 oc get clusterversion
@@ -40,12 +40,9 @@ metadata:
   name: cluster
 spec:
   defaultNetwork:
-    openshiftSDN:
-      mtu: 1450
-    # OR for OVN-Kubernetes
     ovnKubernetes:
       mtu: 1450
-  networkType: OpenShiftSDN
+  networkType: OVNKubernetes
 EOF
 
 oc apply -f network-config.yaml</code></pre>
