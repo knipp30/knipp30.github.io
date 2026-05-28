@@ -70,7 +70,7 @@ EOF
 oc create -f snapshot.yaml
 
 # Monitor snapshot creation
-oc wait my-vm my-snapshot --for condition=Ready -n my-namespace
+oc wait virtualmachinesnapshot my-snapshot --for condition=Ready -n my-namespace
 
 # Check status: InProgress → Succeeded/Failed</code></pre>
 

@@ -36,9 +36,10 @@ metadata:
   name: my-vm
   namespace: my-namespace
 spec:
+  evictionStrategy: LiveMigrateIfPossible
   template:
     spec:
-      evictionStrategy: LiveMigrateIfPossible
+      domain: {}
 EOF
 
 # Edit existing VM

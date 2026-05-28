@@ -107,16 +107,17 @@ spec:
 EOF
 
 # Set eviction strategy for migratable VMs
-cat &gt; vm-eviction.yaml &lt;&lt;EOF
+cat > vm-eviction.yaml &lt;&lt;EOF
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:
   name: my-vm
   namespace: my-namespace
 spec:
+  evictionStrategy: LiveMigrate
   template:
     spec:
-      evictionStrategy: LiveMigrate
+      domain: {}
 EOF
 
 oc apply -f vm-eviction.yaml

@@ -270,7 +270,7 @@ oc get virtualmachinesnapshots -n my-namespace
 oc delete virtualmachinesnapshot my-vm-snapshot -n my-namespace
 
 # Check snapshot content
-oc describe vmsnapshotcontent my-vm-restore-content -n my-namespace
+oc describe vmsnapshot my-vm-restore-content -n my-namespace
 
 # Snapshot with multiple VolumeSnapshotClasses:
 # If disk has more than one VolumeSnapshotClass, must specify one

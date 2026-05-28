@@ -206,7 +206,7 @@ metadata:
   name: my-vm-headless
   namespace: my-namespace
 spec:
-  clusterIP: None  # Headless - no IP assigned
+  # clusterIP is implicitly None for headless services
   selector:
     kubevirt.io/name: my-vm
 EOF
