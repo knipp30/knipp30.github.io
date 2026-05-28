@@ -51,7 +51,31 @@ virtctl restart my-vm -n my-namespace
 
 # Cluster-wide eviction strategy
 oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
-# Set: spec.evictionStrategy: LiveMigrate</code></pre>
+# Set: spec.evictionStrategy: LiveMigrate
+
+# Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM → Policies tab
+# 3. Set Eviction Strategy:
+#    - LiveMigrate: VMs live migrate during node drain
+#    - LiveMigrateIfPossible: Upgrade prioritized, non-migratable VMs stop
+#    - None: VMs powered down
+# 4. Click Save
+# 5. For node affinity/anti-affinity:
+#    a. Edit VM → Scheduling
+#    b. Configure node selector, affinity, or anti-affinity rules
+#    c. For anti-affinity: specify label selector and topologyKey
+#    d. Click Save
+# 6. For tolerations:
+#    a. Edit VM → Scheduling → Tolerations
+#    b. Click "Add Toleration"
+#    c. Set key, operator, value, effect
+#    d. Click Save
+# 7. For Machine Health Check (IPI):
+#    a. Navigate to Compute → MachineHealthCheck
+#    b. Click "Create MachineHealthCheck"
+#    c. Configure maxUnhealthy, nodeStartupTimeout, unhealthyConditions
+#    d. Click Create</code></pre>
 
         <h2 id="node-selectors">Node Selectors</h2>
         <pre><code># Node selector: Simplest form of node placement

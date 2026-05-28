@@ -154,7 +154,41 @@ oc get vm my-vm -n my-namespace
 # Migration configuration (cluster-wide)
 oc edit hyperconverged kubevirt-hyperconverged -n openshift-cnv
 # Set migration parameters:
-#   spec.configuration.migrationConfiguration:</code></pre>
+#   spec.configuration.migrationConfiguration:
+
+# Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM
+# 3. Click "Actions" → Migrate
+# 4. The VM will be live migrated to another node
+# 5. Migration status appears in VM status bar
+# 6. To cancel: Click "Actions" → Cancel Migration
+# 7. To set eviction strategy:
+#    a. Edit VM → Policies → Eviction Strategy
+#    b. Choose: LiveMigrate, LiveMigrateIfPossible, or None
+#    c. Click Save
+# 8. To configure cluster-wide migration settings:
+#    a. Navigate to Virtualization → Settings → Cluster
+#    b. Scroll to "Migration" section
+#    c. Set batchEvictionSize, batchEvictionInterval
+#    d. Click Save
+
+# Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM
+# 3. Click "Actions" → Migrate
+# 4. The VM will be live migrated to another node
+# 5. Migration status appears in VM status bar
+# 6. To cancel: Click "Actions" → Cancel Migration
+# 7. To set eviction strategy:
+#    a. Edit VM → Policies → Eviction Strategy
+#    b. Choose: LiveMigrate, LiveMigrateIfPossible, or None
+#    c. Click Save
+# 8. To configure cluster-wide migration settings:
+#    a. Navigate to Virtualization → Settings → Cluster
+#    b. Scroll to "Migration" section
+#    c. Set batchEvictionSize, batchEvictionInterval
+#    d. Click Save</code></pre>
 
         <h2 id="cancel-migration">Canceling Migrations</h2>
         <pre><code># Cancel a running migration

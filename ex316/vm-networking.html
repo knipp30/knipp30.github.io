@@ -313,6 +313,26 @@ oc create route reencrypt cdi-uploadproxy \
 virtctl ssh &lt;user&gt;@&lt;vm_name&gt; -n &lt;namespace&gt;
 
 # SSH configuration in VM manifest
+
+# Via Web Console:
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM → Networking tab
+# 3. To expose with NodePort:
+#    a. Click "Add Service"
+#    b. Select type: NodePort
+#    c. Configure port and targetPort
+#    d. Click Create
+# 4. To expose with LoadBalancer:
+#    a. Click "Add Service"
+#    b. Select type: LoadBalancer
+#    c. Configure port and targetPort
+#    d. Click Create
+# 5. To create network policy:
+#    a. Navigate to Networking → NetworkPolicies
+#    b. Click "Create NetworkPolicy"
+#    c. Select namespace and pod selector
+#    d. Configure ingress/egress rules
+#    e. Click Create
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
 metadata:

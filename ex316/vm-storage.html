@@ -333,6 +333,30 @@ EOF</code></pre>
 
         <h2 id="boot-source-updates">Boot Source Updates</h2>
         <pre><code># Manage automatic boot source updates
+
+# Via Web Console:
+# 1. Navigate to Virtualization → Storage → DataVolumes
+# 2. To attach disk to VM:
+#    a. Select VM → Disks tab
+#    b. Click "Add Disk"
+#    c. Select storage (PVC or DataVolume)
+#    d. Set mount path and access mode
+#    e. Click Add
+# 3. To detach disk:
+#    a. Select VM → Disks tab
+#    b. Click "Remove" next to disk
+#    c. Confirm removal
+# 4. To configure storage profiles:
+#    a. Navigate to Virtualization → Settings → Cluster
+#    b. Scroll to "Storage" section
+#    c. Edit storage profile settings
+#    d. Click Save
+# 5. To upload images:
+#    a. Navigate to Virtualization → Catalog
+#    b. Select blank template
+#    c. Under Storage, choose "Upload"
+#    d. Select image file, set size
+#    e. Click Create
 # CDI imports, polls, and updates images for cloning
 
 # Enable auto-update for custom boot sources

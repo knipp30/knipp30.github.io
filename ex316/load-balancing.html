@@ -155,6 +155,22 @@ EOF</code></pre>
         <pre><code># Enable load balancer service creation via web console
 # Virtualization → Overview → Settings → Cluster → Enable load balancer
 
+# Via Web Console (add services):
+# 1. Navigate to Virtualization → VirtualMachines
+# 2. Select a VM → Services tab
+# 3. Click "Add Service"
+# 4. Select type: LoadBalancer, NodePort, or ClusterIP
+# 5. Configure ports (port, targetPort, protocol)
+# 6. For LoadBalancer: select load balancer provider
+# 7. Click Create
+
+# To add custom routes:
+# 1. Navigate to Networking → Routes
+# 2. Click "Create Route"
+# 3. Select namespace and service
+# 4. Configure hostname, TLS termination
+# 5. Click Create
+
 # Or via CLI
 cat &gt; hc-enable-lb.yaml &lt;&lt;EOF
 apiVersion: hco.kubevirt.io/v1beta1

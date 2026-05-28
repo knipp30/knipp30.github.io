@@ -287,6 +287,20 @@ spec:
     migrationNetwork: migration-network
 EOF</code></pre>
 
+       <h2 id="web-console">Web Console Steps</h2>
+        <pre><code># Via Web Console:
+# 1. Navigate to Virtualization → Settings → Cluster
+# 2. Scroll to "Networking" section
+# 3. To create NetworkAttachmentDefinition:
+#    a. Click "Create NetworkAttachmentDefinition"
+#    b. Enter name and namespace
+#    c. Select CNI type (macvtap, sriov, etc.)
+#    d. Configure network parameters
+#    e. Click Create
+# 4. To attach network to VM:
+#    a. Edit VM → Interfaces → Add Interface → Multus
+#    b. Select the NetworkAttachmentDefinition
+#    c. Click Add</code></pre>
     </div></div></div>
     <footer><p>EX316 OpenShift 4.18 Exam Preparation Guide · Objective 4</p></footer>
 </body>
