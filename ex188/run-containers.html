@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX188 Objective 3 — Run Containers Locally Using Podman</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">📫</span> EX188 Containers Exam Prep</a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Objective 3: Run Containers Locally Using Podman</h1>
+            <p class="hero-sub">EX188 — Container logs, events, inspect, environment parameters, exposing public applications, and inspecting running applications</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="objective-content">
+            <h2>In Preparation</h2>
+            <p>This is an upcoming study guide for the EX188 exam objective. Content will be added soon.</p>
+
+            <h2>Study Points for the Exam</h2>
+
+            <h3>1. Run Containers Locally Using Podman</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Run an interactive container<br>
+podman run -it alpine sh<br><br>
+# Run a detached container<br>
+podman run -d --name myweb nginx<br><br>
+# Run with port mapping<br>
+podman run -d -p 8080:80 --name myweb nginx<br><br>
+# Run with a volume mount<br>
+podman run -d -v /host/data:/container/data:Z myimage
+            </div>
+            <p><strong>Key flags:</strong></p>
+            <ul>
+                <li><code>-d</code>: Run in detached mode (background)</li>
+                <li><code>-it</code>: Interactive mode with tty</li>
+                <li><code>--name</code>: Assign a name to the container</li>
+                <li><code>-p host:container</code>: Map host port to container port</li>
+                <li><code>-v host:container:options</code>: Bind mount</li>
+                <li><code>--rm</code>: Automatically remove container when it exits</li>
+            </ul>
+
+            <h3>2. Get Container Logs</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# View logs for a specific container<br>
+podman logs myweb<br><br>
+# Follow logs in real time<br>
+podman logs -f myweb<br><br>
+# Show only tail of logs<br>
+podman logs --tail 50 myweb<br><br>
+# Show timestamps<br>
+podman logs --since 2h myweb
+            </div>
+
+            <h3>3. Listen to Container Events on the Container Host</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Listen to container events<br>
+podman events myweb<br><br>
+# Filter by event type<br>
+podman events --filter event=start --filter event=stop
+            </div>
+            <p><strong>Common events:</strong> attach, detach, destroy, exec_create, exec_detach, exec_start, kill, mount, oom, pause, rename, resize, restart, start, stop, unmount, unpause</p>
+
+            <h3>4. Use Podman Inspect</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Inspect a container<br>
+podman inspect myweb<br><br>
+# Inspect an image<br>
+podman inspect nginx<br><br>
+# Get specific fields<br>
+podman inspect --format '{{.Config.Hostname}}' myweb<br>
+podman inspect --format '{{.NetworkSettings.IPAddress}}' myweb<br><br>
+# Inspect in JSON format<br>
+podman inspect myweb | jq '.[0].Config.Env'
+            </div>
+
+            <h3>5. Specifying Environment Parameters</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Set environment variables at runtime<br>
+podman run -e APP_ENV=production -e DB_HOST=db.example.com myimage<br><br>
+# Read from a file<br>
+podman run --env-file ./env.list myimage<br><br>
+# Override ENV set in the image<br>
+podman run -e APP_ENV=development myimage
+            </div>
+
+            <h3>6. Expose Public Applications</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Expose a container port on the host<br>
+podman run -d -p 80:80 --name webserver nginx<br><br>
+# Expose on a specific host IP<br>
+podman run -d -p 127.0.0.1:8080:80 --name webserver nginx<br><br>
+# Expose multiple ports<br>
+podman run -d -p 80:80 -p 443:443 --name webserver nginx<br><br>
+# Use host networking (container shares host network namespace)<br>
+podman run -d --network=host nginx
+            </div>
+
+            <h3>7. Get Application Logs</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# View stdout/stderr from the container<br>
+podman logs myapp<br><br>
+# Follow the log stream<br>
+podman logs -f myapp<br><br>
+# Filter by time<br>
+podman logs --since 2026-01-01T00:00:00 myapp
+            </div>
+
+            <h3>8. Inspect Running Applications</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# List running containers<br>
+podman ps<br><br>
+# List all containers (including stopped)<br>
+podman ps -a<br><br>
+# View resource usage<br>
+podman top myapp<br><br>
+# Execute a command in a running container<br>
+podman exec -it myapp sh<br><br>
+# View container state and details<br>
+podman inspect myapp
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>EX188 Containers Exam Preparation Guide · Red Hat Certified Specialist in Containers · 2026</p>
+    </footer>
+</body>
+</html>

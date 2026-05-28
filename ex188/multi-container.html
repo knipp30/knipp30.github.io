@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX188 Objective 4 — Run Multi-Container Applications with Podman</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">📫</span> EX188 Containers Exam Prep</a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Objective 4: Run Multi-Container Applications with Podman</h1>
+            <p class="hero-sub">EX188 — Application stacks, container dependencies, environment variables, secrets, volumes, and configuration</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="objective-content">
+            <h2>In Preparation</h2>
+            <p>This is an upcoming study guide for the EX188 exam objective. Content will be added soon.</p>
+
+            <h2>Study Points for the Exam</h2>
+
+            <h3>1. Create Application Stacks with Podman Compose</h3>
+            <p>Podman Compose is a compatibility layer for Docker Compose that works with Podman:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Example docker-compose.yaml<br>
+version: '3'<br>
+services:<br>
+&nbsp;&nbsp;web:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;image: nginx:latest<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ports:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- "8080:80"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;depends_on:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- app<br>
+&nbsp;&nbsp;&nbsp;&nbsp;networks:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- app-network<br>
+&nbsp;&nbsp;app:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;image: myapp:latest<br>
+&nbsp;&nbsp;&nbsp;&nbsp;environment:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- DATABASE_HOST=db<br>
+&nbsp;&nbsp;&nbsp;&nbsp;networks:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- app-network<br>
+&nbsp;&nbsp;db:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;image: postgres:15<br>
+&nbsp;&nbsp;&nbsp;&nbsp;volumes:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- db-data:/var/lib/postgresql/data<br>
+&nbsp;&nbsp;&nbsp;&nbsp;networks:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- app-network<br>
+<br>
+volumes:<br>
+&nbsp;&nbsp;db-data:<br>
+<br>
+networks:<br>
+&nbsp;&nbsp;app-network:
+            </div>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Start the stack<br>
+podman compose up -d<br><br>
+# Stop the stack<br>
+podman compose down<br><br>
+# View status<br>
+podman compose ps<br><br>
+# View logs<br>
+podman compose logs -f
+            </div>
+
+            <h3>2. Understand Container Dependencies</h3>
+            <p>Containers can depend on other containers for proper startup ordering:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Start a database container first<br>
+podman run -d --name mydb -e POSTGRES_PASSWORD=secret postgres<br><br>
+# Start an application container that depends on the database<br>
+podman run -d -p 8080:80 --name myapp --link mydb:db myapp
+            </div>
+            <p><strong>Networking between containers:</strong></p>
+            <ul>
+                <li><strong>Default network:</strong> Containers on the same pod can communicate via <code>localhost</code></li>
+                <li><strong>Custom networks:</strong> Create a shared network for containers to communicate by name</li>
+                <li><strong>Podman pods:</strong> Containers in the same pod share network namespace</li>
+            </ul>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Create a custom network<br>
+podman network create app-net<br><br>
+# Start containers on the same network<br>
+podman run -d --name db --network app-net -e POSTGRES_PASSWORD=secret postgres<br>
+podman run -d --name app --network app-net -p 8080:80 myapp<br><br>
+# Containers can now resolve each other by name<br>
+# The app container can reach db at hostname: db
+            </div>
+
+            <h3>3. Working with Environment Variables</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Set environment variables in docker-compose.yaml<br>
+environment:<br>
+&nbsp;&nbsp;- APP_ENV=production<br>
+&nbsp;&nbsp;- DATABASE_URL=postgres://db:5432/mydb<br><br>
+# Using a .env file (podman-compose supports this)<br>
+APP_ENV=production<br>
+DATABASE_URL=postgres://db:5432/mydb<br><br>
+# Override at runtime<br>
+podman compose up -d --env APP_ENV=staging
+            </div>
+            <p><strong>Service discovery:</strong> Containers on the same network can resolve other containers by their container name or service name in the compose file.</p>
+
+            <h3>4. Working with Secrets</h3>
+            <p>Podman supports secrets for managing sensitive data:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Create a secret from a file<br>
+echo "mysecretpassword" | podman secret create mydb-pass -<br><br>
+# Run a container with the secret<br>
+podman run -d --name myapp --secret mydb-pass myimage<br><br>
+# Access the secret inside the container<br>
+cat /run/secrets/mydb-pass<br><br>
+# List secrets<br>
+podman secret ls<br><br>
+# Remove a secret<br>
+podman secret rm mydb-pass
+            </div>
+            <p><strong>Secrets in compose:</strong></p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+version: '3'<br>
+services:<br>
+&nbsp;&nbsp;app:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;image: myapp<br>
+&nbsp;&nbsp;&nbsp;&nbsp;secrets:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- mydb-pass<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- api-key<br><br>
+secrets:<br>
+&nbsp;&nbsp;mydb-pass:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;file: ./secrets/db-pass.txt<br>
+&nbsp;&nbsp;api-key:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;external: true
+            </div>
+
+            <h3>5. Working with Volumes</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Named volumes in compose<br>
+volumes:<br>
+&nbsp;&nbsp;db-data:<br>
+&nbsp;&nbsp;app-cache:<br><br>
+# Bind mounts in compose<br>
+volumes:<br>
+&nbsp;&nbsp;- ./data:/var/lib/data:Z<br>
+&nbsp;&nbsp;- ./config:/etc/app/config:ro
+            </div>
+            <p><strong>Volume management:</strong></p>
+            <ul>
+                <li><strong>Named volumes:</strong> Managed by Podman, stored in <code>/var/lib/containers/storage</code></li>
+                <li><strong>Bind mounts:</strong> Mount a specific host path into the container</li>
+                <li><strong>Read-only:</strong> Add <code>:ro</code> to prevent writes</li>
+                <li><strong>SELinux:</strong> Use <code>:Z</code> for private or <code>:z</code> for shared labels</li>
+            </ul>
+
+            <h3>6. Working with Configuration</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Using configuration files<br>
+# docker-compose.yaml<br>
+version: '3'<br>
+services:<br>
+&nbsp;&nbsp;web:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;image: nginx<br>
+&nbsp;&nbsp;&nbsp;&nbsp;volumes:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ./nginx.conf:/etc/nginx/nginx.conf:ro<br><br>
+# Or using ConfigMaps-like approach<br>
+# Copy config into the image during build<br>
+COPY config/app.conf /etc/app/app.conf
+            </div>
+            <p><strong>Configuration best practices:</strong></p>
+            <ul>
+                <li>Use environment variables for runtime configuration</li>
+                <li>Use volumes to mount configuration files</li>
+                <li>Keep configuration separate from application code</li>
+                <li>Use <code>:ro</code> (read-only) for configuration mounts to prevent accidental modifications</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>EX188 Containers Exam Preparation Guide · Red Hat Certified Specialist in Containers · 2026</p>
+    </footer>
+</body>
+</html>

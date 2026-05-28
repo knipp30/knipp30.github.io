@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX188 Objective 5 — Troubleshoot Containerized Applications</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">📫</span> EX188 Containers Exam Prep</a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Objective 5: Troubleshoot Containerized Applications</h1>
+            <p class="hero-sub">EX188 — Application resource descriptions, logs, inspecting running applications, and connecting to running containers</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="objective-content">
+            <h2>In Preparation</h2>
+            <p>This is an upcoming study guide for the EX188 exam objective. Content will be added soon.</p>
+
+            <h2>Study Points for the Exam</h2>
+
+            <h3>1. Understand the Description of Application Resources</h3>
+            <p><strong>List containers and their status:</strong></p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# List running containers<br>
+podman ps<br><br>
+# List all containers (including stopped/exited)<br>
+podman ps -a<br><br>
+# Filter by name, status, or label<br>
+podman ps --filter name=myapp<br>
+podman ps --filter status=exited
+            </div>
+            <p><strong>Inspect container resources:</strong></p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Full container inspection (JSON output)<br>
+podman inspect myapp<br><br>
+# Inspect specific fields<br>
+podman inspect --format '{{.State.Status}}' myapp<br>
+podman inspect --format '{{.NetworkSettings.IPAddress}}' myapp<br>
+podman inspect --format '{{.Mounts}}' myapp<br><br>
+# Inspect image configuration<br>
+podman inspect myimage
+            </div>
+            <p><strong>Common State values:</strong> created, running, paused, restarting, exited, dead</p>
+
+            <h3>2. Get Application Logs</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# View all logs<br>
+podman logs myapp<br><br>
+# Follow logs in real time<br>
+podman logs -f myapp<br><br>
+# Show last N lines<br>
+podman logs --tail 100 myapp<br><br>
+# Filter by time range<br>
+podman logs --since 30m myapp<br>
+podman logs --since "2026-01-01T00:00:00" myapp<br><br>
+# Show only errors<br>
+podman logs 2>&1 | grep -i error
+            </div>
+            <p><strong>Log troubleshooting:</strong></p>
+            <ul>
+                <li>Check if the container is actually running: <code>podman ps</code></li>
+                <li>Check exit codes: <code>podman inspect --format '{{.State.ExitCode}}' myapp</code></li>
+                <li>Check container health (if health check is configured)</li>
+            </ul>
+
+            <h3>3. Inspect Running Applications</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# View process information inside a container<br>
+podman top myapp<br><br>
+# View container stats (CPU, memory, network I/O)<br>
+podman stats myapp<br><br>
+# Check container ports<br>
+podman port myapp<br><br>
+# View container network configuration<br>
+podman network inspect myapp<br><br>
+# Check mounted volumes<br>
+podman inspect --format '{{json .Mounts}}' myapp
+            </div>
+
+            <h3>4. Connecting to Running Containers</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Attach to a running container with an interactive shell<br>
+podman exec -it myapp sh<br><br>
+# Execute a specific command<br>
+podman exec myapp ls -la /app<br><br>
+# Run as a different user<br>
+podman exec -u root -it myapp bash<br><br>
+# Detached exec (run a command in background)<br>
+podman exec -d myapp touch /tmp/trigger
+            </div>
+            <p><strong>Use cases for <code>podman exec</code>:</strong></p>
+            <ul>
+                <li>Debug application issues by examining files</li>
+                <li>Check environment variables: <code>podman exec myapp env</code></li>
+                <li>Test connectivity: <code>podman exec myapp ping google.com</code></li>
+                <li>View application logs inside the container: <code>podman exec myapp cat /var/log/app.log</code></li>
+                <li>Restart services: <code>podman exec myapp systemctl restart nginx</code></li>
+            </ul>
+
+            <h3>5. Common Troubleshooting Scenarios</h3>
+
+            <h4>Container won't start</h4>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Check logs for error messages<br>
+podman logs myapp<br><br>
+# Check if the image exists<br>
+podman images<br><br>
+# Try running interactively for verbose output<br>
+podman run -it --rm myimage bash
+            </div>
+
+            <h4>Container exits immediately</h4>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Check exit code<br>
+podman inspect --format '{{.State.ExitCode}}' myapp<br><br>
+# Check logs<br>
+podman logs myapp<br><br>
+# Run with an interactive shell to debug<br>
+podman run -it --rm myimage /bin/sh
+            </div>
+
+            <h4>Port not accessible</h4>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Check if port is mapped<br>
+podman port myapp<br><br>
+# Check if service is listening inside container<br>
+podman exec myapp ss -tlnp<br><br>
+# Check container network<br>
+podman inspect --format '{{json .NetworkSettings}}' myapp
+            </div>
+
+            <h4>Permission issues</h4>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Check container user<br>
+podman exec myapp whoami<br><br>
+# Check file permissions<br>
+podman exec myapp ls -la /path/to/file<br><br>
+# Check SELinux context on bind mounts<br>
+ls -Z /host/path
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>EX188 Containers Exam Preparation Guide · Red Hat Certified Specialist in Containers · 2026</p>
+    </footer>
+</body>
+</html>

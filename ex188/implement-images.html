@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX188 Objective 1 — Implement Images Using Podman and Containerfile</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">📫</span> EX188 Containers Exam Prep</a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Objective 1: Implement Images Using Podman and Containerfile</h1>
+            <p class="hero-sub">EX188 — Containerfile instructions, base images, runtime configuration, ports, variables, volumes, security, and lifecycle</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="objective-content">
+            <h2>In Preparation</h2>
+            <p>This is an upcoming study guide for the EX188 exam objective. Content will be added soon.</p>
+
+            <h2>Study Points for the Exam</h2>
+
+            <h3>1. Base Images — FROM Instruction</h3>
+            <p>Specifies the base image for subsequent instructions. A valid Containerfile must have either <code>ARG</code> or <code>FROM</code> as its first instruction.</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+FROM registry.access.redhat.com/ubi9/ubi:latest<br>
+FROM registry.access.redhat.com/ubi9/ubi:9.4<br>
+FROM quay.io/redhat-isos-bootc/f4-bootc@sha256:abc123<br>
+            </div>
+            <ul>
+                <li>If no tag is given, <code>latest</code> is applied automatically</li>
+                <li><code>FROM</code> may appear multiple times to create multi-stage builds</li>
+                <li>Names can be assigned to build stages using <code>AS &lt;name&gt;</code></li>
+            </ul>
+
+            <h3>2. Adding Content — RUN, ADD, COPY Instructions</h3>
+            <p><strong>RUN</strong> executes commands in a new layer and commits the results:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Shell form (runs in /bin/sh -c)<br>
+RUN yum install -y httpd && yum clean all<br><br>
+# Executable form (preferred, avoids shell string munging)<br>
+RUN ["yum", "install", "-y", "httpd"]
+            </div>
+            <p><strong>COPY</strong> copies files from the build context into the container:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+COPY index.html /var/www/html/<br>
+COPY ["src/", "/opt/app/"]
+            </div>
+            <p><strong>ADD</strong> is similar to COPY but can also unpack tarballs and fetch URLs:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+ADD archive.tar.gz /opt/<br>
+ADD https://example.com/file.txt /opt/
+            </div>
+            <p><strong>COPY vs ADD:</strong> Prefer <code>COPY</code> for local files. Use <code>ADD</code> only when you need tar auto-extraction or URL fetching.</p>
+
+            <h3>3. Runtime Environment — USER, WORKDIR, ENV, ARG</h3>
+            <p><strong>USER</strong> sets the username or UID to run the container as:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+RUN groupadd -r myapp && useradd -r -g myapp myapp<br>
+USER myapp
+            </div>
+            <p><strong>WORKDIR</strong> sets the working directory for subsequent instructions:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+WORKDIR /opt/app<br>
+COPY . .<br>
+RUN make<br>
+CMD ["./app"]
+            </div>
+            <p><strong>ENV</strong> sets environment variables that persist when the container runs:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+ENV APP_HOME=/opt/app<br>
+ENV APP_ENV=production
+            </div>
+            <p><strong>ARG</strong> defines build-time arguments (not persisted in the final image):</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+ARG BUILD_VERSION=1.0<br>
+RUN echo "Building version $BUILD_VERSION"
+            </div>
+
+            <h3>4. Exposing Ports — EXPOSE Instruction</h3>
+            <p>Documents which ports the container listens on at runtime. Does not actually publish the ports — use <code>podman run -p</code> to map them:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+EXPOSE 80<br>
+EXPOSE 8080 8443
+            </div>
+
+            <h3>5. Specifying Commands — CMD and ENTRYPOINT</h3>
+            <p><strong>CMD</strong> provides default arguments for an executing container. Only the last <code>CMD</code> takes effect:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Executable form (preferred)<br>
+CMD ["/usr/local/bin/app", "--config", "/etc/app.conf"]<br><br>
+# Shell form<br>
+CMD echo "Container started"<br><br>
+# Provide defaults to ENTRYPOINT<br>
+ENTRYPOINT ["/usr/local/bin/app"]<br>
+CMD ["--config", "/etc/app.conf"]
+            </div>
+            <p><strong>ENTRYPOINT</strong> sets the main command for the container. Arguments from <code>CMD</code> are passed as defaults, but can be overridden at runtime with <code>podman run</code> arguments.</p>
+            <p><strong>CMD vs ENTRYPOINT:</strong></p>
+            <ul>
+                <li><code>CMD</code> is overridden by any arguments passed to <code>podman run</code></li>
+                <li><code>ENTRYPOINT</code> persists; <code>CMD</code> arguments are appended and can be replaced</li>
+                <li>Use <code>ENTRYPOINT + CMD</code> for a fixed executable with configurable arguments</li>
+            </ul>
+
+            <h3>6. Container Volumes</h3>
+            <p>Mount host directories into the container for persistent data:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Bind mount (at runtime)<br>
+podman run -v /host/data:/container/data:Z myimage<br><br>
+# Named volume<br>
+podman run -v myvolume:/container/data myimage
+            </div>
+            <p><strong>SELinux relabeling:</strong> Use <code>:Z</code> for private labels (only this container can use the mount) or <code>:z</code> for shared labels (multiple containers can use the mount).</p>
+
+            <h3>7. Security and Permissions</h3>
+            <ul>
+                <li><strong>Rootless containers:</strong> Podman runs containers as the current user by default, not as root</li>
+                <li><strong>USER instruction:</strong> Switch to a non-root user inside the container</li>
+                <li><strong>SELinux:</strong> Labels must be properly set on bind-mounted content, or SELinux may prevent access</li>
+                <li><strong>Network access:</strong> Containers are isolated by default; use <code>--network</code> or <code>--privileged</code> to modify</li>
+            </ul>
+
+            <h3>8. Container and Image Lifecycle</h3>
+            <ul>
+                <li><strong>Build:</strong> <code>podman build -t myimage:tag .</code></li>
+                <li><strong>List images:</strong> <code>podman images</code></li>
+                <li><strong>Inspect:</strong> <code>podman inspect myimage</code></li>
+                <li><strong>Run:</strong> <code>podman run -d -p 8080:80 myimage</code></li>
+                <li><strong>List containers:</strong> <code>podman ps</code></li>
+                <li><strong>Stop:</strong> <code>podman stop &lt;container&gt;</code></li>
+                <li><strong>Remove:</strong> <code>podman rm &lt;container&gt;</code></li>
+                <li><strong>Prune images:</strong> <code>podman image prune</code></li>
+                <li><strong>Save/Load:</strong> <code>podman save -o myimage.tar myimage</code> and <code>podman load -i myimage.tar</code></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>EX188 Containers Exam Preparation Guide · Red Hat Certified Specialist in Containers · 2026</p>
+    </footer>
+</body>
+</html>

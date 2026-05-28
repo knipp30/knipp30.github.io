@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EX188 Objective 2 — Manage Images</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-inner">
+            <a href="../index.html" class="logo"><span class="logo-icon">📫</span> EX188 Containers Exam Prep</a>
+            <button class="menu-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Objective 2: Manage Images</h1>
+            <p class="hero-sub">EX188 — Registry security, image tags, push/pull, and image vs container state backup</p>
+        </div>
+    </section>
+
+    <main class="container">
+        <section class="objective-content">
+            <h2>In Preparation</h2>
+            <p>This is an upcoming study guide for the EX188 exam objective. Content will be added soon.</p>
+
+            <h2>Study Points for the Exam</h2>
+
+            <h3>1. Private Registry Security</h3>
+            <p>Authenticate to registries before pushing or pulling images:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Login to a registry<br>
+podman login registry.example.com<br>
+podman login quay.io<br>
+podman login registry.redhat.com -u &lt;username&gt; -p &lt;password&gt;<br><br>
+# Authentication file is stored at $XDG_RUNTIME_DIR/containers/auth.json<br>
+# or $HOME/.config/containers/auth.json<br><br>
+# Logout<br>
+podman logout registry.example.com
+            </div>
+            <p><strong>Red Hat registry:</strong> Requires a Red Hat account and pull secret. Access images from <code>registry.redhat.io</code> or <code>registry.access.redhat.com</code>.</p>
+
+            <h3>2. Interacting with Different Registries</h3>
+            <p>Podman works with multiple registry types:</p>
+            <ul>
+                <li><strong>Docker Hub:</strong> <code>docker.io/library/alpine:latest</code></li>
+                <li><strong>Quay.io:</strong> <code>quay.io/myorg/myimage:tag</code></li>
+                <li><strong>Red Hat Registry:</strong> <code>registry.redhat.io/myapp/myimage:tag</code></li>
+                <li><strong>Local registry:</strong> <code>localhost/myimage:tag</code></li>
+                <li><strong>Custom registry:</strong> <code>registry.example.com:5000/myimage:tag</code></li>
+            </ul>
+            <p><strong>Image naming convention:</strong> [<code>registry/</code>]<code>repository</code><code>[:tag]</code></p>
+
+            <h3>3. Image Tags</h3>
+            <p>Tag images to identify specific versions or builds:</p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Tag an image<br>
+podman tag myimage:latest myimage:v1.2.3<br>
+podman tag myimage:latest registry.example.com/myimage:v1<br><br>
+# List image tags<br>
+podman images<br>
+podman images --digests
+            </div>
+            <p><strong>Best practices:</strong></p>
+            <ul>
+                <li>Use meaningful tags: version numbers, build hashes, environment names</li>
+                <li>Always tag images before pushing to a registry</li>
+                <li>Use <code>latest</code> sparingly — it is implicit and can cause confusion</li>
+                <li>Consider using semantic versioning (e.g., <code>v1.2.3</code>)</li>
+            </ul>
+
+            <h3>4. Push and Pull Images</h3>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Push an image to a registry<br>
+podman push myimage:latest registry.example.com/myimage:latest<br><br>
+# Pull an image from a registry<br>
+podman pull registry.example.com/myimage:latest<br><br>
+# Pull and run in one step<br>
+podman run registry.example.com/myapp:latest
+            </div>
+            <p><strong>Push authentication:</strong> Requires prior <code>podman login</code>. For Red Hat registries, use your developer.redhat.com credentials.</p>
+
+            <h3>5. Backup: Image with Layers vs. Container State</h3>
+            <p><strong>Back up an image (includes all layers and metadata):</strong></p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Save image with all layers and metadata to a tar file<br>
+podman save -o myimage.tar myimage:latest<br><br>
+# Load from a tar file<br>
+podman load -i myimage.tar
+            </div>
+            <p><strong>Back up a container state (changes made since creation):</strong></p>
+            <div class="code-block" style="background: #1a1a2e; color: #e0e0e0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; margin: 16px 0;">
+# Commit container changes to a new image<br>
+podman commit &lt;container_id&gt; myimage:from-container<br><br>
+# Export container filesystem (does not include layers or metadata)<br>
+podman export &lt;container_id&gt; -o container-export.tar<br>
+cat container-export.tar | podman import - myimage:imported
+            </div>
+            <p><strong>Key differences:</strong></p>
+            <ul>
+                <li><code>podman save</code> preserves the full image with all layers, metadata, and history</li>
+                <li><code>podman commit</code> captures the current state of a running container as a new image</li>
+                <li><code>podman export</code> only saves the container filesystem — loses layers, metadata, and history</li>
+                <li><code>podman import</code> restores from an exported tarball as a single-layer image</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>EX188 Containers Exam Preparation Guide · Red Hat Certified Specialist in Containers · 2026</p>
+    </footer>
+</body>
+</html>
