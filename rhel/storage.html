@@ -21,7 +21,7 @@ sudo pvcreate /dev/sdb
 # Create volume group
 sudo vgcreate vg_data /dev/sdb
 
-# Create logical volume (80% of VG)
+# Create logical volume (use all free space in VG)
 sudo lvcreate -l 100%FREE -n lv_data vg_data
 
 # Format and mount
@@ -103,7 +103,7 @@ sudo btrfs subvolume list /mnt/btrfs
 sudo btrfs subvolume snapshot /mnt/btrfs/home /mnt/btrfs/home_snap
 
 # Send/receive (remote backup)
-sudo btrfs send /mnt/btrfs/home_snap | sudo btrfs receive /mnt/backup/</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/10/html/managing_overview_and_installing_systems/" style="color:var(--accent)">RHEL 10 Storage Guide</a> &middot; <a href="https://btrfs.readthedocs.io/" style="color:var(--accent)">Btrfs Wiki</a></p></div>
+sudo btrfs send /mnt/btrfs/home_snap | sudo btrfs receive /mnt/backup/</code></pre><div class="callout"><div class="callout-title">&#128218; Reference</div><p><a href="https://docs.redhat.com/en-us/red_hat_enterprise_linux/10/html/managing_file_systems/" style="color:var(--accent)">RHEL 10 Managing File Systems</a> >RHEL 10 Storage Guide</a> &middot; <amiddot; <a href="https://docs.redhat.com/en-us/red_hat_enterprise_linux/10/html/storage_overview/" style="color:var(--accent)">RHEL 10 Storage Overview</a> >RHEL 10 Storage Guide</a> &middot; <amiddot; <a href="https://btrfs.readthedocs.io/" style="color:var(--accent)">Btrfs Wiki</a></p></div>
     </div>
     <aside class="toc"><h4>On this page</h4><ul>
         <li><a href="#lvm">LVM</a></li><li><a href="#luks">LUKS Encryption</a></li><li><a href="#raid">Software RAID</a></li><li><a href="#nfs">NFS</a></li><li><a href="#btrfs">Btrfs</a></li>
